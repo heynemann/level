@@ -5,12 +5,12 @@ exec 1>&2
 # enable user input
 exec < /dev/tty
 
-consoleregexp='[XF](It|Describe)[(]'
+forbiddenregexp='[XF](It|Describe)[(]'
 # CHECK
-if test $(git diff --cached | egrep $consoleregexp | wc -l) != 0
+if test $(git diff --cached | egrep $forbiddenregexp | wc -l) != 0
 then 
   echo "Proposed diff:"
-  exec git diff --cached | egrep -ne $consoleregexp
+  exec git diff --cached | egrep -ne $forbiddenregexp
   echo
   echo "In the above diff, there's at least one occurrence of:"
   echo "    * XIt;"
