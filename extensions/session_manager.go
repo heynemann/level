@@ -9,6 +9,7 @@ package extensions
 
 import (
 	"fmt"
+	"strconv"
 	"time"
 
 	"gopkg.in/redis.v4"
@@ -40,8 +41,8 @@ func GetSessionManager(redisHost string, redisPort int, redisPass string, redisD
 //Start starts a new session in the storage (or resumes an old one)
 func (s *SessionManager) Start(sessionID string) {
 	hashKey := getSessionKey(sessionID)
-	timestamp := fmt.Sprintf("%d", time.Now().UnixNano())
-	s.client.HSet(hashKey, "lastupdated", timestamp)
+	timestamp := strconv.FormatInt(time.Now().UnixNano(), 10)
+	s.client.HSet(hashKey, GetLastUpdatedKey(), timestamp)
 }
 
 //Merge gets all the keys from old session into new session (no overwrites done).

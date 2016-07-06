@@ -17,3 +17,13 @@ type SessionNotFoundError struct {
 func (s *SessionNotFoundError) Error() string {
 	return fmt.Sprintf("Session with session ID %s was not found in session storage.", s.sessionID)
 }
+
+//UnserializableItemError indicates that an item that could not be serialized was added to a session
+type UnserializableItemError struct {
+	sessionID string
+	item      interface{}
+}
+
+func (u *UnserializableItemError) Error() string {
+	return fmt.Sprintf("Could not serialize value %v for session with session ID %s.", u.item, u.sessionID)
+}

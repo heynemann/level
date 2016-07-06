@@ -85,7 +85,7 @@ var _ = Describe("Session Management", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(exists).To(BeTrue())
 
-				lastUpdated, err := testClient.HGet(hashKey, "lastupdated").Result()
+				lastUpdated, err := testClient.HGet(hashKey, extensions.GetLastUpdatedKey()).Result()
 				Expect(err).NotTo(HaveOccurred())
 				Expect(lastUpdated).NotTo(BeNil())
 			})
@@ -145,7 +145,7 @@ var _ = Describe("Session Management", func() {
 
 				Expect(session.ID).To(Equal(sessionID))
 				Expect(session.Manager).To(BeEquivalentTo(sm))
-				Expect(session.Get("lastupdated")).To(BeNumerically(">", 0))
+				Expect(session.Get(extensions.GetLastUpdatedKey())).To(BeNumerically(">", 0))
 			})
 
 			It("should not load a session if invalid id", func() {
