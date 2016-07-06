@@ -6,3 +6,4 @@ import:
 - package: github.com/onsi/gomega
 - package: gopkg.in/redis.v4
 - package: github.com/satori/go.uuid
+- package: gopkg.in/vmihailenco/msgpack.v2

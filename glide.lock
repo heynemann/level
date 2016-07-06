@@ -1,12 +1,12 @@
-hash: 23a5d598d123374bd38ea9a6583a59e31af24f4782a3c069be60756f5950d88c
-updated: 2016-07-05T01:38:33.008049963-03:00
+hash: 2540c32439697041f4f8aa42bf8d9cb1695b31005159ace2c41a23eee327c8b1
+updated: 2016-07-05T22:29:33.086729954-03:00
 imports:
 - name: github.com/onsi/ginkgo
-  version: 059cec02d342bab423425a99b191186a03255e9e
+  version: 16c38793d41b07a5f9ae77d573af7836a994bf27
   subpackages:
   - ginkgo
 - name: github.com/onsi/gomega
-  version: 45da7174b70cc2cde7a980ee04a0aa74412c414a
+  version: 82a02eccf12c018071eef42fbb701c0db6f1e3db
 - name: github.com/satori/go.uuid
   version: 879c5887cd475cd7864858769793b2ceb0d44feb
 - name: gopkg.in/bsm/ratelimit.v1
@@ -18,4 +18,6 @@ imports:
   - internal/consistenthash
   - internal/hashtag
   - internal/pool
+- name: gopkg.in/vmihailenco/msgpack.v2
+  version: 585b09497e708217121c79a5aa185647b757605a
 devImports: []

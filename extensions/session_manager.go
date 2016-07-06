@@ -12,7 +12,41 @@ import (
 	"time"
 
 	"gopkg.in/redis.v4"
+	"gopkg.in/vmihailenco/msgpack.v2"
 )
+
+//Session represents an user session
+type Session struct {
+	ID      string
+	Manager *SessionManager
+	data    map[string]interface{}
+}
+
+//Serialize dehidrates an item to the session storage
+func (session *Session) Serialize(payload interface{}) (string, error) {
+	item, err := msgpack.Marshal(payload)
+	if err != nil {
+		return "", err
+	}
+
+	return string(item), nil
+}
+
+//Deserialize rehidrates an item in the session storage
+func (session *Session) Deserialize(payload string) (interface{}, error) {
+	var item interface{}
+	err := msgpack.Unmarshal([]byte(payload), &item)
+	if err != nil {
+		return nil, err
+	}
+
+	return item, nil
+}
+
+//Get returns an item in the session
+func (session *Session) Get(key string) interface{} {
+	return session.data[key]
+}
 
 //SessionNotFoundError identified an error that occurred because a given session was not found.
 type SessionNotFoundError struct {
@@ -26,6 +60,10 @@ func (s *SessionNotFoundError) Error() string {
 // SessionManager is responsible for handling session data
 type SessionManager struct {
 	client *redis.Client
+}
+
+func getSessionKey(sessionID string) string {
+	return fmt.Sprintf("session-%s", sessionID)
 }
 
 //GetSessionManager returns a connected SessionManager ready to be used.
@@ -48,15 +86,15 @@ func GetSessionManager(redisHost string, redisPort int, redisPass string, redisD
 
 //Start starts a new session in the storage (or resumes an old one)
 func (s *SessionManager) Start(sessionID string) {
-	hashKey := fmt.Sprintf("session-%s", sessionID)
+	hashKey := getSessionKey(sessionID)
 	timestamp := fmt.Sprintf("%d", time.Now().UnixNano())
 	s.client.HSet(hashKey, "lastupdated", timestamp)
 }
 
 //Merge gets all the keys from old session into new session (no overwrites done).
 func (s *SessionManager) Merge(oldSessionID, sessionID string) (int, error) {
-	oldHashKey := fmt.Sprintf("session-%s", oldSessionID)
-	hashKey := fmt.Sprintf("session-%s", sessionID)
+	oldHashKey := getSessionKey(oldSessionID)
+	hashKey := getSessionKey(sessionID)
 
 	mergeScript := redis.NewScript(`
 		local values = redis.call("HGETALL", KEYS[1])
@@ -82,4 +120,28 @@ func (s *SessionManager) Merge(oldSessionID, sessionID string) (int, error) {
 		return 0, err
 	}
 	return int(totalKeys.(int64)), nil
+}
+
+//Load loads a session from the storage with all its items
+func (s *SessionManager) Load(sessionID string) (*Session, error) {
+	all, err := s.client.HGetAll(getSessionKey(sessionID)).Result()
+	if err != nil {
+		return nil, err
+	}
+
+	sess := &Session{
+		ID:      sessionID,
+		Manager: s,
+		data:    make(map[string]interface{}),
+	}
+
+	for k, v := range all {
+		item, err := sess.Deserialize(v)
+		if err != nil {
+			continue
+		}
+		sess.data[k] = item
+	}
+
+	return sess, nil
 }
