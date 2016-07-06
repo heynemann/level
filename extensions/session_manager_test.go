@@ -11,7 +11,6 @@ import (
 	"fmt"
 
 	"gopkg.in/redis.v4"
-	"gopkg.in/vmihailenco/msgpack.v2"
 
 	"github.com/heynemann/level/extensions"
 	"github.com/satori/go.uuid"
@@ -19,17 +18,6 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
-
-func getDefaultSM() *extensions.SessionManager {
-	sessionManager, _ := extensions.GetSessionManager(
-		"localhost", // Redis Host
-		7777,        // Redis Port
-		"",          // Redis Pass
-		0,           // Redis DB
-	)
-
-	return sessionManager
-}
 
 var _ = Describe("Session Management", func() {
 
@@ -159,50 +147,16 @@ var _ = Describe("Session Management", func() {
 				Expect(session.Manager).To(BeEquivalentTo(sm))
 				Expect(session.Get("lastupdated")).To(BeNumerically(">", 0))
 			})
-		})
-	})
 
-	Describe("Session", func() {
-		Describe("can serialize", func() {
-			It("should serialize using msgpack", func() {
-				expected := map[string]interface{}{"a": 1}
-				s := extensions.Session{}
-				result, err := s.Serialize(expected)
+			It("should not load a session if invalid id", func() {
+				sm := getDefaultSM()
+				sessionID := uuid.NewV4().String()
 
-				Expect(err).NotTo(HaveOccurred())
-
-				serialized, err := msgpack.Marshal(expected)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(result).To(BeEquivalentTo(serialized))
-			})
-
-			It("should fail to serialize invalid object", func() {
-				s := extensions.Session{}
-				_, err := s.Serialize(func() {})
+				session, err := sm.Load(sessionID)
+				Expect(session).To(BeNil())
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(Equal("msgpack: Encode(unsupported func())"))
-			})
-		})
-
-		Describe("can deserialize", func() {
-			It("should deserialize using msgpack", func() {
-				expected := map[interface{}]interface{}{"a": 1}
-				serialized, err := msgpack.Marshal(expected)
-				Expect(err).NotTo(HaveOccurred())
-
-				s := extensions.Session{}
-				result, err := s.Deserialize(string(serialized))
-				actual := result.(map[interface{}]interface{})
-
-				Expect(err).NotTo(HaveOccurred())
-				Expect(actual["a"]).To(BeEquivalentTo(1))
-			})
-
-			It("should fail to deserialize invalid payload", func() {
-				s := extensions.Session{}
-				_, err := s.Deserialize("")
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(Equal("EOF"))
+				expected := fmt.Sprintf("Session with session ID %s was not found in session storage.", sessionID)
+				Expect(err.Error()).To(Equal(expected))
 			})
 		})
 	})

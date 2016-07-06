@@ -1,7 +1,10 @@
 PACKAGES = $(shell glide novendor)
 DIRS = $(shell find ./ -type f -not -path '*/\.*' | grep '.go' | grep -v "^[.]\/vendor" | xargs dirname | sort | uniq | grep -v '^.$$')
 
-setup:
+setup-hooks:
+	@cd .git/hooks && ln -sf ../../hooks/pre-commit.sh pre-commit
+
+setup: setup-hooks
 	@go get -u github.com/Masterminds/glide/...
 	@glide install
 
