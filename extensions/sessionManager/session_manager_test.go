@@ -41,6 +41,7 @@ var _ = Describe("Session Management", func() {
 					7777,        // Redis Port
 					"",          // Redis Pass
 					0,           // Redis DB
+					180,
 				)
 
 				Expect(err).NotTo(HaveOccurred())
@@ -53,6 +54,7 @@ var _ = Describe("Session Management", func() {
 					7777,        // Redis Port
 					"",          // Redis Pass
 					0,           // Redis DB
+					180,
 				)
 
 				Expect(err).NotTo(HaveOccurred())
@@ -66,6 +68,7 @@ var _ = Describe("Session Management", func() {
 					1249,        // Redis Port
 					"",          // Redis Pass
 					0,           // Redis DB
+					180,
 				)
 
 				Expect(err).To(HaveOccurred())

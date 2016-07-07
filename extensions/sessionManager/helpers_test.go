@@ -15,6 +15,7 @@ func getDefaultSM() *sessionManager.SessionManager {
 		7777,        // Redis Port
 		"",          // Redis Pass
 		0,           // Redis DB
+		180,
 	)
 
 	return sessionManager

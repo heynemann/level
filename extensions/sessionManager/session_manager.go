@@ -19,12 +19,15 @@ import (
 
 // SessionManager is responsible for handling session data
 type SessionManager struct {
-	client *redis.Client
+	Expiration int
+	client     *redis.Client
 }
 
 //GetSessionManager returns a connected SessionManager ready to be used.
-func GetSessionManager(redisHost string, redisPort int, redisPass string, redisDB int) (*SessionManager, error) {
-	sessionManager := &SessionManager{}
+func GetSessionManager(redisHost string, redisPort int, redisPass string, redisDB int, expiration int) (*SessionManager, error) {
+	sessionManager := &SessionManager{
+		Expiration: expiration,
+	}
 
 	sessionManager.client = redis.NewClient(&redis.Options{
 		Addr:     fmt.Sprintf("%s:%d", redisHost, redisPort),
@@ -41,10 +44,21 @@ func GetSessionManager(redisHost string, redisPort int, redisPass string, redisD
 }
 
 //Start starts a new session in the storage (or resumes an old one)
-func (s *SessionManager) Start(sessionID string) {
+func (s *SessionManager) Start(sessionID string) error {
 	hashKey := getSessionKey(sessionID)
 	timestamp := strconv.FormatInt(time.Now().UnixNano(), 10)
-	s.client.HSet(hashKey, GetLastUpdatedKey(), timestamp)
+	mergeScript := redis.NewScript(`
+		redis.call("HSET", KEYS[1], KEYS[2], ARGV[1])
+		redis.call("EXPIRE", KEYS[1], ARGV[2])
+		return null
+	`)
+	expire := strconv.FormatInt(int64(s.Expiration), 10)
+	_, err := mergeScript.Run(s.client, []string{hashKey, GetLastUpdatedKey()}, timestamp, expire).Result()
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 //Merge gets all the keys from old session into new session (no overwrites done).

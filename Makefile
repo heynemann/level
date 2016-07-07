@@ -8,6 +8,9 @@ setup: setup-hooks
 	@go get -u github.com/Masterminds/glide/...
 	@glide install
 
+build:
+	@go build $(PACKAGES)
+
 test: test-redis
 	@ginkgo --cover $(DIRS)
 
