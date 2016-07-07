@@ -1,14 +1,12 @@
-hash: 489c456e9f81807ffc297a6aa11d8ee1f5b62eafb0ffff634f3eee49c6034fe5
-updated: 2016-07-06T23:36:05.153372971-03:00
+hash: ffc671c9b9b6b1c5236ac8bee7b6cd0512d1c0c222e34f3352fcfd861cedc11c
+updated: 2016-07-07T00:40:43.680517023-03:00
 imports:
 - name: github.com/golang/protobuf
   version: 3852dcfda249c2097355a6aabb199a28d97b30df
   subpackages:
   - proto
-- name: github.com/heynemann/level
-  version: f3cad2587b827c32be0577fdb4cd19f7740d474a
-  subpackages:
-  - extensions
+- name: github.com/nats-io/nats
+  version: d498de06529cce1536449f220f54217a10c319e5
 - name: github.com/onsi/ginkgo
   version: 16c38793d41b07a5f9ae77d573af7836a994bf27
   subpackages:

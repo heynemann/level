@@ -7,6 +7,7 @@ setup-hooks:
 setup: setup-hooks
 	@go get -u github.com/onsi/ginkgo/ginkgo
 	@go get -u github.com/Masterminds/glide/...
+	@go get -u github.com/nats-io/gnatsd
 	@glide install
 
 build:
@@ -32,3 +33,12 @@ test-redis: test-redis-shutdown
 # shutdown test redis instance (localhost:7777)
 test-redis-shutdown:
 	@-redis-cli -p 7777 shutdown
+
+# start test gnatsd (localhost:7778)
+test-gnatsd: test-gnatsd-shutdown
+	@rm -rf /tmp/level-gnatsd.pid
+	@gnatsd -p 7778 --pid /tmp/level-gnatsd.pid &
+
+# shutdown test gnatsd
+test-gnatsd-shutdown:
+	@-cat /tmp/level-gnatsd.pid | xargs kill -9
