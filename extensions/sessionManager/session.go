@@ -42,7 +42,7 @@ func (session *Session) Reload() error {
 		return err
 	}
 	if len(all) == 0 {
-		return &extensions.SessionNotFoundError{session.ID}
+		return &extensions.SessionNotFoundError{SessionID: session.ID}
 	}
 
 	session.data = map[string]interface{}{}
@@ -94,7 +94,7 @@ func (session *Session) Set(key string, value interface{}) error {
 	serialized, err := extensions.Serialize(value)
 	if err != nil {
 		if strings.HasPrefix(err.Error(), "msgpack: Encode(unsupported") {
-			return &extensions.UnserializableItemError{session.ID, value}
+			return &extensions.UnserializableItemError{SessionID: session.ID, Item: value}
 		}
 		return err
 	}

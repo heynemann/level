@@ -85,7 +85,7 @@ func (s *SessionManager) Merge(oldSessionID, sessionID string) (int, error) {
 	totalKeys, err := mergeScript.Run(s.client, []string{oldHashKey, hashKey}).Result()
 	if err != nil {
 		if err.Error() == "Session was not found!" {
-			return 0, &extensions.SessionNotFoundError{oldSessionID}
+			return 0, &extensions.SessionNotFoundError{SessionID: oldSessionID}
 		}
 		return 0, err
 	}
