@@ -15,9 +15,13 @@ test: test-redis
 	@ginkgo --cover $(DIRS)
 
 test-coverage: test
-	@echo "mode: count" > test-coverage-all.out
-	@bash -c 'for f in $$(find . -name "*.coverprofile"); do tail -n +2 $$f >> test-coverage-all.out; done'
-	@go tool cover -html=test-coverage-all.out
+	@rm -rf _build
+	@mkdir -p _build
+	@echo "mode: count" > _build/test-coverage-all.out
+	@bash -c 'for f in $$(find . -name "*.coverprofile"); do tail -n +2 $$f >> _build/test-coverage-all.out; done'
+
+test-coverage-html: test-coverage
+	@go tool cover -html=_build/test-coverage-all.out
 
 # get a test redis instance up (localhost:7777)
 test-redis: test-redis-shutdown
