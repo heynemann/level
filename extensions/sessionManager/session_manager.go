@@ -5,12 +5,14 @@
 // http://www.opensource.org/licenses/mit-license
 // Copyright © 2016 Bernardo Heynemann <heynemann@gmail.com>
 
-package extensions
+package sessionManager
 
 import (
 	"fmt"
 	"strconv"
 	"time"
+
+	"github.com/heynemann/level/extensions"
 
 	"gopkg.in/redis.v4"
 )
@@ -69,7 +71,7 @@ func (s *SessionManager) Merge(oldSessionID, sessionID string) (int, error) {
 	totalKeys, err := mergeScript.Run(s.client, []string{oldHashKey, hashKey}).Result()
 	if err != nil {
 		if err.Error() == "Session was not found!" {
-			return 0, &SessionNotFoundError{oldSessionID}
+			return 0, &extensions.SessionNotFoundError{oldSessionID}
 		}
 		return 0, err
 	}

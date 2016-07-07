@@ -11,19 +11,19 @@ import "fmt"
 
 //SessionNotFoundError identified an error that occurred because a given session was not found.
 type SessionNotFoundError struct {
-	sessionID string
+	SessionID string
 }
 
 func (s *SessionNotFoundError) Error() string {
-	return fmt.Sprintf("Session with session ID %s was not found in session storage.", s.sessionID)
+	return fmt.Sprintf("Session with session ID %s was not found in session storage.", s.SessionID)
 }
 
 //UnserializableItemError indicates that an item that could not be serialized was added to a session
 type UnserializableItemError struct {
-	sessionID string
-	item      interface{}
+	SessionID string
+	Item      interface{}
 }
 
 func (u *UnserializableItemError) Error() string {
-	return fmt.Sprintf("Could not serialize value %v for session with session ID %s.", u.item, u.sessionID)
+	return fmt.Sprintf("Could not serialize/deserialize value %v for session with session ID %s.", u.Item, u.SessionID)
 }

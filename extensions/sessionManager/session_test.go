@@ -5,7 +5,7 @@
 // http://www.opensource.org/licenses/mit-license
 // Copyright © 2016 Bernardo Heynemann <heynemann@gmail.com>
 
-package extensions_test
+package sessionManager_test
 
 import (
 	"fmt"
@@ -15,6 +15,7 @@ import (
 	"gopkg.in/vmihailenco/msgpack.v2"
 
 	"github.com/heynemann/level/extensions"
+	"github.com/heynemann/level/extensions/sessionManager"
 	"github.com/satori/go.uuid"
 
 	. "github.com/onsi/ginkgo"
@@ -106,7 +107,7 @@ var _ = Describe("Session Management", func() {
 
 				serialized, err = extensions.Serialize("otherValue")
 				Expect(err).NotTo(HaveOccurred())
-				_, err = testClient.HSet(sessionKey, extensions.GetLastUpdatedKey(), "2").Result()
+				_, err = testClient.HSet(sessionKey, sessionManager.GetLastUpdatedKey(), "2").Result()
 				Expect(err).NotTo(HaveOccurred())
 				_, err = testClient.HSet(sessionKey, "someKey", serialized).Result()
 				Expect(err).NotTo(HaveOccurred())
@@ -146,7 +147,7 @@ var _ = Describe("Session Management", func() {
 				Expect(items[1]).To(BeEquivalentTo(2))
 				Expect(session.LastUpdated).To(BeNumerically(">", ts))
 
-				value, err = testClient.HGet(sessionKey, extensions.GetLastUpdatedKey()).Result()
+				value, err = testClient.HGet(sessionKey, sessionManager.GetLastUpdatedKey()).Result()
 				Expect(err).NotTo(HaveOccurred())
 
 				deserialized, err = strconv.ParseInt(value, 10, 64)
@@ -164,7 +165,7 @@ var _ = Describe("Session Management", func() {
 
 				err = session.Set("aKey", func() {})
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("Could not serialize value"))
+				Expect(err.Error()).To(ContainSubstring("Could not serialize/deserialize value"))
 			})
 		})
 	})

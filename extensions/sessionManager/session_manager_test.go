@@ -5,14 +5,14 @@
 // http://www.opensource.org/licenses/mit-license
 // Copyright © 2016 Bernardo Heynemann <heynemann@gmail.com>
 
-package extensions_test
+package sessionManager_test
 
 import (
 	"fmt"
 
 	"gopkg.in/redis.v4"
 
-	"github.com/heynemann/level/extensions"
+	"github.com/heynemann/level/extensions/sessionManager"
 	"github.com/satori/go.uuid"
 
 	. "github.com/onsi/ginkgo"
@@ -36,7 +36,7 @@ var _ = Describe("Session Management", func() {
 		Describe("Initialized properly", func() {
 
 			It("When getting a new instance", func() {
-				sessionManager, err := extensions.GetSessionManager(
+				sessionManager, err := sessionManager.GetSessionManager(
 					"localhost", // Redis Host
 					7777,        // Redis Port
 					"",          // Redis Pass
@@ -48,7 +48,7 @@ var _ = Describe("Session Management", func() {
 			})
 
 			It("should be connected to Redis", func() {
-				_, err := extensions.GetSessionManager(
+				_, err := sessionManager.GetSessionManager(
 					"localhost", // Redis Host
 					7777,        // Redis Port
 					"",          // Redis Pass
@@ -61,7 +61,7 @@ var _ = Describe("Session Management", func() {
 
 		Describe("Initialized with wrong params", func() {
 			It("should not be connected to Redis", func() {
-				sessionManager, err := extensions.GetSessionManager(
+				sessionManager, err := sessionManager.GetSessionManager(
 					"localhost", // Redis Host
 					1249,        // Redis Port
 					"",          // Redis Pass
@@ -85,7 +85,7 @@ var _ = Describe("Session Management", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(exists).To(BeTrue())
 
-				lastUpdated, err := testClient.HGet(hashKey, extensions.GetLastUpdatedKey()).Result()
+				lastUpdated, err := testClient.HGet(hashKey, sessionManager.GetLastUpdatedKey()).Result()
 				Expect(err).NotTo(HaveOccurred())
 				Expect(lastUpdated).NotTo(BeNil())
 			})
@@ -145,7 +145,7 @@ var _ = Describe("Session Management", func() {
 
 				Expect(session.ID).To(Equal(sessionID))
 				Expect(session.Manager).To(BeEquivalentTo(sm))
-				Expect(session.Get(extensions.GetLastUpdatedKey())).To(BeNumerically(">", 0))
+				Expect(session.Get(sessionManager.GetLastUpdatedKey())).To(BeNumerically(">", 0))
 			})
 
 			It("should not load a session if invalid id", func() {

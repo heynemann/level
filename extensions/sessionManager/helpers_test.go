@@ -5,12 +5,12 @@
 // http://www.opensource.org/licenses/mit-license
 // Copyright © 2016 Bernardo Heynemann <heynemann@gmail.com>
 
-package extensions_test
+package sessionManager_test
 
-import "github.com/heynemann/level/extensions"
+import "github.com/heynemann/level/extensions/sessionManager"
 
-func getDefaultSM() *extensions.SessionManager {
-	sessionManager, _ := extensions.GetSessionManager(
+func getDefaultSM() *sessionManager.SessionManager {
+	sessionManager, _ := sessionManager.GetSessionManager(
 		"localhost", // Redis Host
 		7777,        // Redis Port
 		"",          // Redis Pass

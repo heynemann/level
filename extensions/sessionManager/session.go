@@ -5,13 +5,15 @@
 // http://www.opensource.org/licenses/mit-license
 // Copyright © 2016 Bernardo Heynemann <heynemann@gmail.com>
 
-package extensions
+package sessionManager
 
 import (
 	"fmt"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/heynemann/level/extensions"
 )
 
 //Session represents an user session
@@ -40,7 +42,7 @@ func (session *Session) Reload() error {
 		return err
 	}
 	if len(all) == 0 {
-		return &SessionNotFoundError{session.ID}
+		return &extensions.SessionNotFoundError{session.ID}
 	}
 
 	session.data = map[string]interface{}{}
@@ -51,7 +53,7 @@ func (session *Session) Reload() error {
 				session.LastUpdated = lastUpdated
 			}
 		}
-		item, err := Deserialize(v)
+		item, err := extensions.Deserialize(v)
 		if err != nil {
 			continue
 		}
@@ -89,10 +91,10 @@ func (session *Session) Get(key string) interface{} {
 func (session *Session) Set(key string, value interface{}) error {
 	lastUpdatedKey := GetLastUpdatedKey()
 	hashKey := getSessionKey(session.ID)
-	serialized, err := Serialize(value)
+	serialized, err := extensions.Serialize(value)
 	if err != nil {
 		if strings.HasPrefix(err.Error(), "msgpack: Encode(unsupported") {
-			return &UnserializableItemError{session.ID, value}
+			return &extensions.UnserializableItemError{session.ID, value}
 		}
 		return err
 	}
