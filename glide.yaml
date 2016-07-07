@@ -8,3 +8,4 @@ import:
 - package: github.com/satori/go.uuid
 - package: gopkg.in/vmihailenco/msgpack.v2
 - package: gopkg.in/yaml.v2
+- package: github.com/golang/protobuf

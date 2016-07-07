@@ -1,10 +1,14 @@
-hash: d684173acaa7d736a83bfa1e576043c7b6a58a624e6c805f1c9cf5e443c113ac
-updated: 2016-07-06T23:29:24.660592148-03:00
+hash: 489c456e9f81807ffc297a6aa11d8ee1f5b62eafb0ffff634f3eee49c6034fe5
+updated: 2016-07-06T23:36:05.153372971-03:00
 imports:
 - name: github.com/golang/protobuf
   version: 3852dcfda249c2097355a6aabb199a28d97b30df
   subpackages:
   - proto
+- name: github.com/heynemann/level
+  version: f3cad2587b827c32be0577fdb4cd19f7740d474a
+  subpackages:
+  - extensions
 - name: github.com/onsi/ginkgo
   version: 16c38793d41b07a5f9ae77d573af7836a994bf27
   subpackages:
