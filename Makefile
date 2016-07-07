@@ -5,6 +5,7 @@ setup-hooks:
 	@cd .git/hooks && ln -sf ../../hooks/pre-commit.sh pre-commit
 
 setup: setup-hooks
+	@go get -u github.com/onsi/ginkgo/ginkgo
 	@go get -u github.com/Masterminds/glide/...
 	@glide install
 
