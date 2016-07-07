@@ -10,6 +10,7 @@ services:
 
 install:
   - make setup
+  - go get github.com/mattn/goveralls
 
 script:
   - make test-coverage
