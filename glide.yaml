@@ -7,3 +7,4 @@ import:
 - package: gopkg.in/redis.v4
 - package: github.com/satori/go.uuid
 - package: gopkg.in/vmihailenco/msgpack.v2
+- package: gopkg.in/yaml.v2

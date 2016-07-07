@@ -1,6 +1,10 @@
-hash: 2540c32439697041f4f8aa42bf8d9cb1695b31005159ace2c41a23eee327c8b1
-updated: 2016-07-05T22:29:33.086729954-03:00
+hash: d684173acaa7d736a83bfa1e576043c7b6a58a624e6c805f1c9cf5e443c113ac
+updated: 2016-07-06T23:29:24.660592148-03:00
 imports:
+- name: github.com/golang/protobuf
+  version: 3852dcfda249c2097355a6aabb199a28d97b30df
+  subpackages:
+  - proto
 - name: github.com/onsi/ginkgo
   version: 16c38793d41b07a5f9ae77d573af7836a994bf27
   subpackages:
@@ -9,6 +13,21 @@ imports:
   version: 82a02eccf12c018071eef42fbb701c0db6f1e3db
 - name: github.com/satori/go.uuid
   version: 879c5887cd475cd7864858769793b2ceb0d44feb
+- name: golang.org/x/net
+  version: b400c2eff1badec7022a8c8f5bea058b6315eed7
+  subpackages:
+  - context
+- name: google.golang.org/appengine
+  version: 267c27e7492265b84fc6719503b14a1e17975d79
+  subpackages:
+  - datastore
+  - internal
+  - internal/datastore
+  - internal/app_identity
+  - internal/modules
+  - internal/base
+  - internal/log
+  - internal/remote_api
 - name: gopkg.in/bsm/ratelimit.v1
   version: db14e161995a5177acef654cb0dd785e8ee8bc22
 - name: gopkg.in/redis.v4
@@ -20,4 +39,8 @@ imports:
   - internal/pool
 - name: gopkg.in/vmihailenco/msgpack.v2
   version: 585b09497e708217121c79a5aa185647b757605a
+  subpackages:
+  - codes
+- name: gopkg.in/yaml.v2
+  version: a83829b6f1293c91addabc89d0571c246397bbf4
 devImports: []
