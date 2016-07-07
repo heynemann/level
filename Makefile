@@ -1,5 +1,5 @@
 PACKAGES = $(shell glide novendor)
-DIRS = $(shell find ./ -type f -not -path '*/\.*' | grep '.go' | grep -v "^[.]\/vendor" | xargs dirname | sort | uniq | grep -v '^.$$')
+DIRS = $(shell find ./ -type f -not -path '*/\.*' | grep '.go' | grep -v "^[.]\/vendor" | xargs -n1 dirname {} | sort | uniq | grep -v '^.$$')
 
 setup-hooks:
 	@cd .git/hooks && ln -sf ../../hooks/pre-commit.sh pre-commit
