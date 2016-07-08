@@ -47,13 +47,14 @@ func GetSessionManager(redisHost string, redisPort int, redisPass string, redisD
 func (s *SessionManager) Start(sessionID string) error {
 	hashKey := getSessionKey(sessionID)
 	timestamp := strconv.FormatInt(time.Now().UnixNano(), 10)
-	mergeScript := redis.NewScript(`
-		redis.call("HSET", KEYS[1], KEYS[2], ARGV[1])
-		redis.call("EXPIRE", KEYS[1], ARGV[2])
-		return null
+	startSessionScript := redis.NewScript(`
+		local res
+		res = redis.call("HSET", KEYS[1], KEYS[2], ARGV[1])
+		res = redis.call("EXPIRE", KEYS[1], ARGV[2])
+		return res
 	`)
 	expire := strconv.FormatInt(int64(s.Expiration), 10)
-	_, err := mergeScript.Run(s.client, []string{hashKey, GetLastUpdatedKey()}, timestamp, expire).Result()
+	_, err := startSessionScript.Run(s.client, []string{hashKey, GetLastUpdatedKey()}, timestamp, expire).Result()
 	if err != nil {
 		return err
 	}
