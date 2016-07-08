@@ -1,12 +1,16 @@
-hash: ffc671c9b9b6b1c5236ac8bee7b6cd0512d1c0c222e34f3352fcfd861cedc11c
-updated: 2016-07-07T00:40:43.680517023-03:00
+hash: ec7f5b22de6d7deed0cffd1721381d6e01fa3e7c66903abb679b8a80bfb9df63
+updated: 2016-07-07T21:46:06.329125383-03:00
 imports:
 - name: github.com/golang/protobuf
   version: 3852dcfda249c2097355a6aabb199a28d97b30df
   subpackages:
   - proto
+- name: github.com/nats-io/gnatsd
+  version: d0c69c11181ae3707212aa681bbf665c07d7d79e
 - name: github.com/nats-io/nats
   version: d498de06529cce1536449f220f54217a10c319e5
+- name: github.com/nats-io/nuid
+  version: a5152d67cf63cbfb5d992a395458722a45194715
 - name: github.com/onsi/ginkgo
   version: 16c38793d41b07a5f9ae77d573af7836a994bf27
   subpackages:
