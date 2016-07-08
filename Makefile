@@ -42,3 +42,9 @@ test-gnatsd: test-gnatsd-shutdown
 # shutdown test gnatsd
 test-gnatsd-shutdown:
 	@-cat /tmp/level-gnatsd.pid | xargs kill -9
+
+schema-update: schema-remove
+	@easyjson --all messaging/*.go
+
+schema-remove:
+	@rm -rf ./messaging/*_easyjson.go
