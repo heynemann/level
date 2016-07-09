@@ -212,7 +212,7 @@ func (matcher *haveLogMessageMatcher) Match(actual interface{}) (success bool, e
 	ok := testLogMessage(actual.(*MockLogger), matcher.expectedLevel, matcher.expectedMessage, matcher.expectedFields...)
 	if !ok {
 		return false, fmt.Errorf(
-			"%v log message was not found with the specified level and parameters. Available messages: %v",
+			"Log message '%v' was not found with the specified level and parameters. Available messages: %v",
 			matcher.expectedMessage, actual.(*MockLogger).Messages,
 		)
 	}

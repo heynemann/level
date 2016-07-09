@@ -21,6 +21,15 @@ import (
 	"github.com/uber-go/zap"
 )
 
+func getFaultyRedisClient() *redis.Client {
+	return redis.NewClient(&redis.Options{
+		Addr:     "0.0.0.0:9876",
+		Password: "",
+		DB:       0,
+	})
+
+}
+
 func verifyServerRegistered(cli *redis.Client, serverName string) {
 	serverKey := fmt.Sprintf("server-status:%s", serverName)
 	result, err := cli.Get(serverKey).Result()
@@ -74,6 +83,19 @@ var _ = Describe("Heartbeat", func() {
 					"redisDB", 0,
 				))
 			})
+
+			It("should not create a heartbeat if redis connection is wrong", func() {
+				heartbeat, err := heartbeat.NewDefault("other-server", "localhost", 8987, "", 0, logger)
+				Expect(heartbeat).To(BeNil())
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("connection refused"))
+
+				Expect(logger).To(HaveLogMessage(
+					zap.ErrorLevel, "Could not connect to redis.",
+					"source", "heartbeat",
+					"error", "dial tcp 127.0.0.1:8987: getsockopt: connection refused",
+				))
+			})
 		})
 
 		Describe("Heartbeat registry", func() {
@@ -85,7 +107,34 @@ var _ = Describe("Heartbeat", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				verifyServerRegistered(testClient, "other-server")
+
+				Expect(logger).To(HaveLogMessage(
+					zap.DebugLevel, "Registering server with service registry...",
+					"source", "heartbeat",
+				))
+
+				Expect(logger).To(HaveLogMessage(
+					zap.InfoLevel, "Registered with service registry successfully.",
+					"source", "heartbeat",
+				))
 			})
+
+			It("should fail register server in redis when pass is wrong", func() {
+				heartbeat, err := heartbeat.NewDefault("other-server", "localhost", 7777, "", 0, logger)
+				Expect(err).NotTo(HaveOccurred())
+
+				heartbeat.Client = getFaultyRedisClient()
+				err = heartbeat.Register()
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("connection refused"))
+
+				Expect(logger).To(HaveLogMessage(
+					zap.ErrorLevel, "Could not register with service registry.",
+					"source", "heartbeat",
+					"error", "dial tcp 0.0.0.0:9876: getsockopt: connection refused",
+				))
+			})
+
 		})
 
 		Describe("Heartbeat Started", func() {
@@ -95,12 +144,25 @@ var _ = Describe("Heartbeat", func() {
 
 				done := heartbeat.Start()
 				time.Sleep(time.Millisecond)
-				defer func(close chan bool) {
-					close <- true
-				}(done)
+				done <- true
 
 				Expect(err).NotTo(HaveOccurred())
 				verifyServerRegistered(testClient, "some-other-server")
+
+				Expect(logger).To(HaveLogMessage(
+					zap.DebugLevel, "Starting heartbeat...",
+					"source", "heartbeat",
+				))
+
+				Expect(logger).To(HaveLogMessage(
+					zap.DebugLevel, "Stopping heartbeat...",
+					"source", "heartbeat",
+				))
+
+				Expect(logger).To(HaveLogMessage(
+					zap.InfoLevel, "Status updated successfully in redis.",
+					"source", "heartbeat",
+				))
 			})
 		})
 	})

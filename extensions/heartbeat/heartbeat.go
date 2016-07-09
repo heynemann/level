@@ -22,7 +22,7 @@ type Heartbeat struct {
 	RegistryExpiration time.Duration
 	UpdateInterval     time.Duration
 	Logger             zap.Logger
-	client             *redis.Client
+	Client             *redis.Client
 }
 
 //NewDefault returns a new instance of the heartbeat extension with default options
@@ -36,6 +36,9 @@ func New(serverID, redisHost string, redisPort int, redisPass string, redisDB in
 		zap.String("source", "heartbeat"),
 		zap.Duration("expiration", registryExpiration),
 		zap.Duration("interval", updateInterval),
+		zap.String("redisHost", redisHost),
+		zap.Int("redisPort", redisPort),
+		zap.Int("redisDB", redisDB),
 	)
 	h := Heartbeat{
 		ServerID:           serverID,
@@ -43,26 +46,21 @@ func New(serverID, redisHost string, redisPort int, redisPass string, redisDB in
 		UpdateInterval:     updateInterval,
 		Logger:             l,
 	}
-	rl := l.With(
-		zap.String("redisHost", redisHost),
-		zap.Int("redisPort", redisPort),
-		zap.Int("redisDB", redisDB),
-	)
 
-	rl.Debug("Connecting to Redis...")
-	h.client = redis.NewClient(&redis.Options{
+	l.Debug("Connecting to Redis...")
+	h.Client = redis.NewClient(&redis.Options{
 		Addr:     fmt.Sprintf("%s:%d", redisHost, redisPort),
 		Password: redisPass,
 		DB:       redisDB,
 	})
 
-	_, err := h.client.Ping().Result()
+	start := time.Now()
+	_, err := h.Client.Ping().Result()
 	if err != nil {
-		rl.Error("Could not connect to redis.", zap.Error(err))
+		l.Error("Could not connect to redis.", zap.Error(err))
 		return nil, err
 	}
-
-	rl.Info("Connected to Redis successfully.")
+	l.Info("Connected to Redis successfully.", zap.Duration("connection", time.Now().Sub(start)))
 
 	return &h, nil
 }
@@ -78,14 +76,19 @@ func (h *Heartbeat) Register() error {
 	`)
 	dt := fmt.Sprintf("%d", int32(time.Now().Unix()))
 	serverStatusKey := fmt.Sprintf("server-status:%s", h.ServerID)
+
+	start := time.Now()
+	h.Logger.Debug("Registering server with service registry...")
 	_, err := registerServerScript.Run(
-		h.client,
+		h.Client,
 		[]string{serverStatusKey, "available-servers"},
 		dt, int64(h.RegistryExpiration), h.ServerID,
 	).Result()
 	if err != nil {
+		h.Logger.Error("Could not register with service registry.", zap.Error(err))
 		return err
 	}
+	h.Logger.Info("Registered with service registry successfully.", zap.Duration("register", time.Now().Sub(start)))
 
 	return nil
 }
@@ -94,17 +97,18 @@ func (h *Heartbeat) Register() error {
 func (h *Heartbeat) Start() chan bool {
 	done := make(chan bool)
 
+	h.Logger.Debug("Starting heartbeat...")
 	go func(self *Heartbeat) {
 		for {
 			select {
 			case <-done:
+				h.Logger.Debug("Stopping heartbeat...")
 				return
 			default:
 				err := self.Register()
-				if err != nil {
-					fmt.Println("Could not submit status to redis. Will retry in 10 seconds.", err)
+				if err == nil {
+					h.Logger.Info("Status updated successfully in redis.")
 				}
-				fmt.Println("Status updated successfully in redis. Sleeping for 10 seconds...")
 				time.Sleep(self.UpdateInterval)
 			}
 		}
