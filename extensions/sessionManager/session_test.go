@@ -17,6 +17,7 @@ import (
 	"github.com/heynemann/level/extensions/sessionManager"
 	"github.com/satori/go.uuid"
 
+	. "github.com/heynemann/level/testing"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -24,8 +25,10 @@ import (
 var _ = Describe("Session Management", func() {
 
 	var testClient *redis.Client
+	var logger *MockLogger
 
 	BeforeEach(func() {
+		logger = NewMockLogger()
 		testClient = redis.NewClient(&redis.Options{
 			Addr:     "localhost:7777",
 			Password: "",
@@ -36,7 +39,7 @@ var _ = Describe("Session Management", func() {
 	Describe("Session", func() {
 		Describe("Getting Data", func() {
 			It("should get items in session", func() {
-				sm := getDefaultSM()
+				sm := getDefaultSM(logger)
 				sessionID := uuid.NewV4().String()
 				sm.Start(sessionID)
 				sessionKey := fmt.Sprintf("session-%s", sessionID)
@@ -53,7 +56,7 @@ var _ = Describe("Session Management", func() {
 			})
 
 			It("should reload session when getting items", func() {
-				sm := getDefaultSM()
+				sm := getDefaultSM(logger)
 				sessionID := uuid.NewV4().String()
 				sm.Start(sessionID)
 				sessionKey := fmt.Sprintf("session-%s", sessionID)
@@ -79,7 +82,7 @@ var _ = Describe("Session Management", func() {
 
 		Describe("Setting Data", func() {
 			It("should set items in session", func() {
-				sm := getDefaultSM()
+				sm := getDefaultSM(logger)
 				sessionID := uuid.NewV4().String()
 				sm.Start(sessionID)
 				sessionKey := fmt.Sprintf("session-%s", sessionID)
@@ -116,7 +119,7 @@ var _ = Describe("Session Management", func() {
 			})
 
 			It("Should fail if item is not serializable", func() {
-				sm := getDefaultSM()
+				sm := getDefaultSM(logger)
 				sessionID := uuid.NewV4().String()
 				sm.Start(sessionID)
 

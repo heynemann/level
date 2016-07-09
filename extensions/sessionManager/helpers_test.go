@@ -7,15 +7,19 @@
 
 package sessionManager_test
 
-import "github.com/heynemann/level/extensions/sessionManager"
+import (
+	"github.com/heynemann/level/extensions/sessionManager"
+	"github.com/uber-go/zap"
+)
 
-func getDefaultSM() *sessionManager.SessionManager {
+func getDefaultSM(logger zap.Logger) *sessionManager.SessionManager {
 	sessionManager, _ := sessionManager.GetSessionManager(
 		"localhost", // Redis Host
 		7777,        // Redis Port
 		"",          // Redis Pass
 		0,           // Redis DB
 		180,
+		logger,
 	)
 
 	return sessionManager

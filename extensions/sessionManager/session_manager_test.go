@@ -10,21 +10,33 @@ package sessionManager_test
 import (
 	"fmt"
 
-	"gopkg.in/redis.v4"
+	redisCli "gopkg.in/redis.v4"
 
 	"github.com/heynemann/level/extensions/sessionManager"
 	"github.com/satori/go.uuid"
+	"github.com/uber-go/zap"
 
+	. "github.com/heynemann/level/testing"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
 
+func getFaultyRedisClient() *redisCli.Client {
+	return redisCli.NewClient(&redisCli.Options{
+		Addr:     "0.0.0.0:9876",
+		Password: "",
+		DB:       0,
+	})
+}
+
 var _ = Describe("Session Management", func() {
 
-	var testClient *redis.Client
+	var testClient *redisCli.Client
+	var logger *MockLogger
 
 	BeforeEach(func() {
-		testClient = redis.NewClient(&redis.Options{
+		logger = NewMockLogger()
+		testClient = redisCli.NewClient(&redisCli.Options{
 			Addr:     "localhost:7777",
 			Password: "",
 			DB:       0,
@@ -42,22 +54,13 @@ var _ = Describe("Session Management", func() {
 					"",          // Redis Pass
 					0,           // Redis DB
 					180,
+					logger,
 				)
 
 				Expect(err).NotTo(HaveOccurred())
 				Expect(sessionManager).NotTo(BeNil())
-			})
-
-			It("should be connected to Redis", func() {
-				_, err := sessionManager.GetSessionManager(
-					"localhost", // Redis Host
-					7777,        // Redis Port
-					"",          // Redis Pass
-					0,           // Redis DB
-					180,
-				)
-
-				Expect(err).NotTo(HaveOccurred())
+				Expect(sessionManager.Logger).NotTo(BeNil())
+				Expect(sessionManager.Client).NotTo(BeNil())
 			})
 		})
 
@@ -69,6 +72,7 @@ var _ = Describe("Session Management", func() {
 					"",          // Redis Pass
 					0,           // Redis DB
 					180,
+					logger,
 				)
 
 				Expect(err).To(HaveOccurred())
@@ -79,9 +83,10 @@ var _ = Describe("Session Management", func() {
 
 		Describe("can start sessions", func() {
 			It("should start a session when provided with session id", func() {
-				sm := getDefaultSM()
+				sm := getDefaultSM(logger)
 				sessionID := uuid.NewV4().String()
-				sm.Start(sessionID)
+				err := sm.Start(sessionID)
+				Expect(err).NotTo(HaveOccurred())
 
 				hashKey := fmt.Sprintf("session-%s", sessionID)
 				exists, err := testClient.Exists(hashKey).Result()
@@ -91,12 +96,48 @@ var _ = Describe("Session Management", func() {
 				lastUpdated, err := testClient.HGet(hashKey, sessionManager.GetLastUpdatedKey()).Result()
 				Expect(err).NotTo(HaveOccurred())
 				Expect(lastUpdated).NotTo(BeNil())
+
+				Expect(logger).To(HaveLogMessage(
+					zap.DebugLevel, "Starting new session.",
+					"source", "sessionManager",
+					"operation", "Start",
+				))
+
+				Expect(logger).To(HaveLogMessage(
+					zap.InfoLevel, "Started session successfully.",
+					"source", "sessionManager",
+					"operation", "Start",
+				))
+			})
+
+			It("should fail to start a session when invalid connection", func() {
+				sm := getDefaultSM(logger)
+				sessionID := uuid.NewV4().String()
+
+				sm.Client = getFaultyRedisClient()
+				err := sm.Start(sessionID)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("connection refused"))
+
+				Expect(logger).To(HaveLogMessage(
+					zap.DebugLevel, "Starting new session.",
+					"source", "sessionManager",
+					"operation", "Start",
+				))
+
+				Expect(logger).To(HaveLogMessage(
+					zap.ErrorLevel, "Could not start session.",
+					"source", "sessionManager",
+					"operation", "Start",
+					"error", "dial tcp 0.0.0.0:9876: getsockopt: connection refused",
+				))
+
 			})
 		})
 
 		Describe("can merge sessions", func() {
 			It("should merge a session into another one", func() {
-				sm := getDefaultSM()
+				sm := getDefaultSM(logger)
 
 				oldSessionID := uuid.NewV4().String()
 				sm.Start(oldSessionID)
@@ -124,7 +165,7 @@ var _ = Describe("Session Management", func() {
 			})
 
 			It("should not merge a non-existing session", func() {
-				sm := getDefaultSM()
+				sm := getDefaultSM(logger)
 
 				sessionID := uuid.NewV4().String()
 				sm.Start(sessionID)
@@ -138,7 +179,7 @@ var _ = Describe("Session Management", func() {
 
 		Describe("can get session", func() {
 			It("should be able to load a session", func() {
-				sm := getDefaultSM()
+				sm := getDefaultSM(logger)
 				sessionID := uuid.NewV4().String()
 				sm.Start(sessionID)
 
@@ -152,7 +193,7 @@ var _ = Describe("Session Management", func() {
 			})
 
 			It("should not load a session if invalid id", func() {
-				sm := getDefaultSM()
+				sm := getDefaultSM(logger)
 				sessionID := uuid.NewV4().String()
 
 				session, err := sm.Load(sessionID)

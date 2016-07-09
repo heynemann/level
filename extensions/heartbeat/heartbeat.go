@@ -11,9 +11,10 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/heynemann/level/extensions/redis"
 	"github.com/uber-go/zap"
 
-	"gopkg.in/redis.v4"
+	redisCli "gopkg.in/redis.v4"
 )
 
 //Heartbeat extension responsible for service registry for all backend servers
@@ -22,7 +23,7 @@ type Heartbeat struct {
 	RegistryExpiration time.Duration
 	UpdateInterval     time.Duration
 	Logger             zap.Logger
-	Client             *redis.Client
+	Client             *redisCli.Client
 }
 
 //NewDefault returns a new instance of the heartbeat extension with default options
@@ -36,9 +37,6 @@ func New(serverID, redisHost string, redisPort int, redisPass string, redisDB in
 		zap.String("source", "heartbeat"),
 		zap.Duration("expiration", registryExpiration),
 		zap.Duration("interval", updateInterval),
-		zap.String("redisHost", redisHost),
-		zap.Int("redisPort", redisPort),
-		zap.Int("redisDB", redisDB),
 	)
 	h := Heartbeat{
 		ServerID:           serverID,
@@ -47,27 +45,19 @@ func New(serverID, redisHost string, redisPort int, redisPass string, redisDB in
 		Logger:             l,
 	}
 
-	l.Debug("Connecting to Redis...")
-	h.Client = redis.NewClient(&redis.Options{
-		Addr:     fmt.Sprintf("%s:%d", redisHost, redisPort),
-		Password: redisPass,
-		DB:       redisDB,
-	})
-
-	start := time.Now()
-	_, err := h.Client.Ping().Result()
+	cli, err := redis.New(redisHost, redisPort, redisPass, redisDB, l)
 	if err != nil {
-		l.Error("Could not connect to redis.", zap.Error(err))
 		return nil, err
 	}
-	l.Info("Connected to Redis successfully.", zap.Duration("connection", time.Now().Sub(start)))
+	h.Client = cli
 
 	return &h, nil
 }
 
 //Register atomically registers a server with redis
 func (h *Heartbeat) Register() error {
-	registerServerScript := redis.NewScript(`
+	l := h.Logger.With(zap.String("operation", "Register"))
+	registerServerScript := redisCli.NewScript(`
 		local res
 		res = redis.call("SET", KEYS[1], ARGV[1])
 		res = redis.call("EXPIRE", KEYS[1], ARGV[2])
@@ -78,36 +68,37 @@ func (h *Heartbeat) Register() error {
 	serverStatusKey := fmt.Sprintf("server-status:%s", h.ServerID)
 
 	start := time.Now()
-	h.Logger.Debug("Registering server with service registry...")
+	l.Debug("Registering server with service registry...")
 	_, err := registerServerScript.Run(
 		h.Client,
 		[]string{serverStatusKey, "available-servers"},
 		dt, int64(h.RegistryExpiration), h.ServerID,
 	).Result()
 	if err != nil {
-		h.Logger.Error("Could not register with service registry.", zap.Error(err))
+		l.Error("Could not register with service registry.", zap.Error(err))
 		return err
 	}
-	h.Logger.Info("Registered with service registry successfully.", zap.Duration("register", time.Now().Sub(start)))
+	l.Info("Registered with service registry successfully.", zap.Duration("register", time.Now().Sub(start)))
 
 	return nil
 }
 
 //Start the server heartbeat
 func (h *Heartbeat) Start() chan bool {
+	l := h.Logger.With(zap.String("operation", "Start"))
 	done := make(chan bool)
 
-	h.Logger.Debug("Starting heartbeat...")
+	l.Debug("Starting heartbeat...")
 	go func(self *Heartbeat) {
 		for {
 			select {
 			case <-done:
-				h.Logger.Debug("Stopping heartbeat...")
+				l.Debug("Stopping heartbeat...")
 				return
 			default:
 				err := self.Register()
 				if err == nil {
-					h.Logger.Info("Status updated successfully in redis.")
+					l.Info("Status updated successfully in redis.")
 				}
 				time.Sleep(self.UpdateInterval)
 			}

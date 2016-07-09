@@ -37,7 +37,7 @@ func GetLastUpdatedKey() string {
 func (session *Session) Reload() error {
 	lastUpdatedKey := GetLastUpdatedKey()
 
-	all, err := session.Manager.client.HGetAll(getSessionKey(session.ID)).Result()
+	all, err := session.Manager.Client.HGetAll(getSessionKey(session.ID)).Result()
 	if err != nil {
 		return err
 	}
@@ -66,7 +66,7 @@ func (session *Session) Reload() error {
 func (session *Session) validateTimestamp() bool {
 	lastUpdatedKey := GetLastUpdatedKey()
 	hashKey := getSessionKey(session.ID)
-	ts, err := session.Manager.client.HGet(hashKey, lastUpdatedKey).Result()
+	ts, err := session.Manager.Client.HGet(hashKey, lastUpdatedKey).Result()
 	if err != nil {
 		return false
 	}
@@ -101,7 +101,7 @@ func (session *Session) Set(key string, value interface{}) error {
 
 	ts := time.Now().UnixNano()
 
-	_, err = session.Manager.client.HMSet(hashKey, map[string]string{
+	_, err = session.Manager.Client.HMSet(hashKey, map[string]string{
 		key:            serialized,
 		lastUpdatedKey: strconv.FormatInt(ts, 10),
 	}).Result()

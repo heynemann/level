@@ -27,7 +27,6 @@ func getFaultyRedisClient() *redis.Client {
 		Password: "",
 		DB:       0,
 	})
-
 }
 
 func verifyServerRegistered(cli *redis.Client, serverName string) {
@@ -70,17 +69,11 @@ var _ = Describe("Heartbeat", func() {
 				Expect(logger).To(HaveLogMessage(
 					zap.DebugLevel, "Connecting to Redis...",
 					"source", "heartbeat",
-					"redisHost", "localhost",
-					"redisPort", 7777,
-					"redisDB", 0,
 				))
 
 				Expect(logger).To(HaveLogMessage(
 					zap.InfoLevel, "Connected to Redis successfully.",
 					"source", "heartbeat",
-					"redisHost", "localhost",
-					"redisPort", 7777,
-					"redisDB", 0,
 				))
 			})
 
