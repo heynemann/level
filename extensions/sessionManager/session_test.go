@@ -42,7 +42,7 @@ var _ = Describe("Session Management", func() {
 				sm := getDefaultSM(logger)
 				sessionID := uuid.NewV4().String()
 				sm.Start(sessionID)
-				sessionKey := fmt.Sprintf("session-%s", sessionID)
+				sessionKey := fmt.Sprintf("level:sessions:%s", sessionID)
 
 				serialized, err := extensions.Serialize("someValue")
 				Expect(err).NotTo(HaveOccurred())
@@ -59,7 +59,7 @@ var _ = Describe("Session Management", func() {
 				sm := getDefaultSM(logger)
 				sessionID := uuid.NewV4().String()
 				sm.Start(sessionID)
-				sessionKey := fmt.Sprintf("session-%s", sessionID)
+				sessionKey := fmt.Sprintf("level:sessions:%s", sessionID)
 
 				serialized, err := extensions.Serialize("someValue")
 				Expect(err).NotTo(HaveOccurred())
@@ -85,7 +85,7 @@ var _ = Describe("Session Management", func() {
 				sm := getDefaultSM(logger)
 				sessionID := uuid.NewV4().String()
 				sm.Start(sessionID)
-				sessionKey := fmt.Sprintf("session-%s", sessionID)
+				sessionKey := fmt.Sprintf("level:sessions:%s", sessionID)
 
 				serialized, err := extensions.Serialize("someValue")
 				Expect(err).NotTo(HaveOccurred())

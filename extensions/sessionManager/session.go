@@ -25,42 +25,12 @@ type Session struct {
 }
 
 func getSessionKey(sessionID string) string {
-	return fmt.Sprintf("session-%s", sessionID)
+	return fmt.Sprintf("level:sessions:%s", sessionID)
 }
 
 //GetLastUpdatedKey returns the key to use for last updated timestamp in sessions
 func GetLastUpdatedKey() string {
 	return "__last_updated__"
-}
-
-//Reload reloads the data in session
-func (session *Session) Reload() error {
-	lastUpdatedKey := GetLastUpdatedKey()
-
-	all, err := session.Manager.Client.HGetAll(getSessionKey(session.ID)).Result()
-	if err != nil {
-		return err
-	}
-	if len(all) == 0 {
-		return &extensions.SessionNotFoundError{SessionID: session.ID}
-	}
-
-	session.data = map[string]interface{}{}
-
-	for k, v := range all {
-		if k == lastUpdatedKey {
-			if lastUpdated, err := strconv.ParseInt(v, 10, 64); err == nil {
-				session.LastUpdated = lastUpdated
-			}
-		}
-		item, err := extensions.Deserialize(v)
-		if err != nil {
-			continue
-		}
-		session.data[k] = item
-	}
-
-	return nil
 }
 
 func (session *Session) validateTimestamp() bool {
@@ -82,7 +52,7 @@ func (session *Session) validateTimestamp() bool {
 //Get returns an item in the session
 func (session *Session) Get(key string) interface{} {
 	if !session.validateTimestamp() {
-		session.Reload()
+		session.Manager.ReloadSession(session)
 	}
 	return session.data[key]
 }

@@ -52,7 +52,7 @@ func (s *SessionManager) Start(sessionID string) error {
 	hashKey := getSessionKey(sessionID)
 	timestamp := time.Now().UnixNano()
 
-	l.Debug("Starting new session.", zap.String("sessionID", hashKey), zap.Int64("sessionTimestamp", timestamp))
+	l.Debug("Starting new session...", zap.String("sessionID", hashKey), zap.Int64("sessionTimestamp", timestamp))
 	script := `
 		local res
 		res = redis.call("HSET", KEYS[1], KEYS[2], ARGV[1])
@@ -86,7 +86,7 @@ func (s *SessionManager) Merge(oldSessionID, sessionID string) (int, error) {
 	oldHashKey := getSessionKey(oldSessionID)
 	hashKey := getSessionKey(sessionID)
 
-	l.Debug("Merging sessions.")
+	l.Debug("Merging sessions...")
 	mergeScript := redisCli.NewScript(`
 		local values = redis.call("HGETALL", KEYS[1])
 		if (#values == 0) then
@@ -119,15 +119,72 @@ func (s *SessionManager) Merge(oldSessionID, sessionID string) (int, error) {
 
 //Load loads a session from the storage with all its items
 func (s *SessionManager) Load(sessionID string) (*Session, error) {
+	l := s.Logger.With(
+		zap.String("operation", "Load"),
+		zap.String("sessionID", sessionID),
+	)
+
 	sess := &Session{
 		ID:      sessionID,
 		Manager: s,
 		data:    make(map[string]interface{}),
 	}
-	err := sess.Reload()
+
+	l.Debug("Loading session...")
+	err := s.ReloadSession(sess)
 	if err != nil {
 		return nil, err
 	}
 
+	l.Info("Session loaded successfully.")
 	return sess, nil
+}
+
+//ReloadSession reloads the data in a session
+func (s *SessionManager) ReloadSession(session *Session) error {
+	l := s.Logger.With(
+		zap.String("operation", "ReloadSession"),
+		zap.String("sessionID", session.ID),
+	)
+
+	lastUpdatedKey := GetLastUpdatedKey()
+
+	l.Debug("Reloading session...")
+	sessionKey := getSessionKey(session.ID)
+	all, err := s.Client.HGetAll(sessionKey).Result()
+	if err != nil {
+		l.Error(
+			"Reloading session failed.",
+			zap.String("lastUpdatedKey", lastUpdatedKey),
+			zap.String("sessionKey", sessionKey),
+			zap.Error(err),
+		)
+		return err
+	}
+	if len(all) == 0 {
+		err := &extensions.SessionNotFoundError{SessionID: session.ID}
+		l.Error(
+			"Session was not found!",
+			zap.String("lastUpdatedKey", lastUpdatedKey),
+			zap.String("sessionKey", sessionKey),
+			zap.Error(err),
+		)
+		return err
+	}
+
+	session.data = map[string]interface{}{}
+
+	for k, v := range all {
+		if k == lastUpdatedKey {
+			if lastUpdated, err := strconv.ParseInt(v, 10, 64); err == nil {
+				session.LastUpdated = lastUpdated
+			}
+		}
+		item, _ := extensions.Deserialize(v)
+		session.data[k] = item
+	}
+
+	l.Info("Session reloaded successfully.")
+
+	return nil
 }

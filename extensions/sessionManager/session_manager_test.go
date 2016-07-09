@@ -79,14 +79,14 @@ var _ = Describe("Session Management", func() {
 			})
 		})
 
-		Describe("can start sessions", func() {
+		Describe("Starting sessions", func() {
 			It("should start a session when provided with session id", func() {
 				sm := getDefaultSM(logger)
 				sessionID := uuid.NewV4().String()
 				err := sm.Start(sessionID)
 				Expect(err).NotTo(HaveOccurred())
 
-				hashKey := fmt.Sprintf("session-%s", sessionID)
+				hashKey := fmt.Sprintf("level:sessions:%s", sessionID)
 				exists, err := testClient.Exists(hashKey).Result()
 				Expect(err).NotTo(HaveOccurred())
 				Expect(exists).To(BeTrue())
@@ -96,7 +96,7 @@ var _ = Describe("Session Management", func() {
 				Expect(lastUpdated).NotTo(BeNil())
 
 				Expect(logger).To(HaveLogMessage(
-					zap.DebugLevel, "Starting new session.",
+					zap.DebugLevel, "Starting new session...",
 					"source", "sessionManager",
 					"operation", "Start",
 				))
@@ -118,7 +118,7 @@ var _ = Describe("Session Management", func() {
 				Expect(err.Error()).To(ContainSubstring("connection refused"))
 
 				Expect(logger).To(HaveLogMessage(
-					zap.DebugLevel, "Starting new session.",
+					zap.DebugLevel, "Starting new session...",
 					"source", "sessionManager",
 					"operation", "Start",
 				))
@@ -133,13 +133,13 @@ var _ = Describe("Session Management", func() {
 			})
 		})
 
-		Describe("can merge sessions", func() {
+		Describe("Merging sessions", func() {
 			It("should merge a session into another one", func() {
 				sm := getDefaultSM(logger)
 
 				oldSessionID := uuid.NewV4().String()
 				sm.Start(oldSessionID)
-				hashKey := fmt.Sprintf("session-%s", oldSessionID)
+				hashKey := fmt.Sprintf("level:sessions:%s", oldSessionID)
 				testClient.HSet(hashKey, "someKey", "someValue")
 
 				sessionID := uuid.NewV4().String()
@@ -152,7 +152,7 @@ var _ = Describe("Session Management", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(exists).To(BeFalse())
 
-				hashKey = fmt.Sprintf("session-%s", sessionID)
+				hashKey = fmt.Sprintf("level:sessions:%s", sessionID)
 				exists, err = testClient.Exists(hashKey).Result()
 				Expect(err).NotTo(HaveOccurred())
 				Expect(exists).To(BeTrue())
@@ -162,7 +162,7 @@ var _ = Describe("Session Management", func() {
 				Expect(someValue).To(Equal("someValue"))
 
 				Expect(logger).To(HaveLogMessage(
-					zap.DebugLevel, "Merging sessions.",
+					zap.DebugLevel, "Merging sessions...",
 					"source", "sessionManager",
 					"operation", "Merge",
 					"oldSessionID", oldSessionID,
@@ -190,7 +190,7 @@ var _ = Describe("Session Management", func() {
 				Expect(err.Error()).To(Equal("Session with session ID invalid-id was not found in session storage."))
 
 				Expect(logger).To(HaveLogMessage(
-					zap.DebugLevel, "Merging sessions.",
+					zap.DebugLevel, "Merging sessions...",
 					"source", "sessionManager",
 					"operation", "Merge",
 				))
@@ -217,7 +217,7 @@ var _ = Describe("Session Management", func() {
 				Expect(err.Error()).To(ContainSubstring("connection refused"))
 
 				Expect(logger).To(HaveLogMessage(
-					zap.DebugLevel, "Merging sessions.",
+					zap.DebugLevel, "Merging sessions...",
 					"source", "sessionManager",
 					"operation", "Merge",
 				))
@@ -232,7 +232,7 @@ var _ = Describe("Session Management", func() {
 
 		})
 
-		Describe("can get session", func() {
+		Describe("Loading sessions", func() {
 			It("should be able to load a session", func() {
 				sm := getDefaultSM(logger)
 				sessionID := uuid.NewV4().String()
@@ -240,11 +240,25 @@ var _ = Describe("Session Management", func() {
 
 				session, err := sm.Load(sessionID)
 
-				Expect(err).ToNot(HaveOccurred())
+				Expect(err).NotTo(HaveOccurred())
 
 				Expect(session.ID).To(Equal(sessionID))
 				Expect(session.Manager).To(BeEquivalentTo(sm))
 				Expect(session.Get(sessionManager.GetLastUpdatedKey())).To(BeNumerically(">", 0))
+
+				Expect(logger).To(HaveLogMessage(
+					zap.DebugLevel, "Loading session...",
+					"source", "sessionManager",
+					"operation", "Load",
+					"sessionID", sessionID,
+				))
+
+				Expect(logger).To(HaveLogMessage(
+					zap.InfoLevel, "Session loaded successfully.",
+					"source", "sessionManager",
+					"operation", "Load",
+					"sessionID", sessionID,
+				))
 			})
 
 			It("should not load a session if invalid id", func() {
@@ -256,6 +270,139 @@ var _ = Describe("Session Management", func() {
 				Expect(err).To(HaveOccurred())
 				expected := fmt.Sprintf("Session with session ID %s was not found in session storage.", sessionID)
 				Expect(err.Error()).To(Equal(expected))
+
+				Expect(logger).To(HaveLogMessage(
+					zap.DebugLevel, "Loading session...",
+					"source", "sessionManager",
+					"operation", "Load",
+					"sessionID", sessionID,
+				))
+			})
+			It("should not load a session if invalid connection", func() {
+				sm := getDefaultSM(logger)
+				sessionID := uuid.NewV4().String()
+				sm.Start(sessionID)
+
+				sm.Client = getFaultyRedisClient()
+				session, err := sm.Load(sessionID)
+				Expect(session).To(BeNil())
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("connection refused"))
+
+				Expect(logger).To(HaveLogMessage(
+					zap.DebugLevel, "Loading session...",
+					"source", "sessionManager",
+					"operation", "Load",
+					"sessionID", sessionID,
+				))
+
+				Expect(logger).To(HaveLogMessage(
+					zap.DebugLevel, "Reloading session...",
+					"source", "sessionManager",
+					"operation", "ReloadSession",
+					"sessionID", sessionID,
+				))
+
+				Expect(logger).To(HaveLogMessage(
+					zap.ErrorLevel, "Reloading session failed.",
+					"source", "sessionManager",
+					"operation", "ReloadSession",
+					"lastUpdatedKey", "__last_updated__",
+					"sessionKey", fmt.Sprintf("level:sessions:%s", sessionID),
+					"error", "dial tcp 0.0.0.0:9876: getsockopt: connection refused",
+				))
+			})
+		})
+
+		Describe("Reloading sessions", func() {
+			It("should be able to reload a session", func() {
+				sm := getDefaultSM(logger)
+				sessionID := uuid.NewV4().String()
+				sm.Start(sessionID)
+
+				session := &sessionManager.Session{
+					ID:      sessionID,
+					Manager: sm,
+				}
+				err := sm.ReloadSession(session)
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(session.ID).To(Equal(sessionID))
+				Expect(session.Get(sessionManager.GetLastUpdatedKey())).To(BeNumerically(">", 0))
+
+				Expect(logger).To(HaveLogMessage(
+					zap.DebugLevel, "Reloading session...",
+					"source", "sessionManager",
+					"operation", "ReloadSession",
+					"sessionID", sessionID,
+				))
+
+				Expect(logger).To(HaveLogMessage(
+					zap.InfoLevel, "Session reloaded successfully.",
+					"source", "sessionManager",
+					"operation", "ReloadSession",
+					"sessionID", sessionID,
+				))
+			})
+
+			It("should not reload a session if invalid id", func() {
+				sm := getDefaultSM(logger)
+				sessionID := uuid.NewV4().String()
+
+				session := &sessionManager.Session{
+					ID:      sessionID,
+					Manager: sm,
+				}
+				err := sm.ReloadSession(session)
+				Expect(err).To(HaveOccurred())
+				expected := fmt.Sprintf("Session with session ID %s was not found in session storage.", sessionID)
+				Expect(err.Error()).To(Equal(expected))
+
+				Expect(logger).To(HaveLogMessage(
+					zap.DebugLevel, "Reloading session...",
+					"source", "sessionManager",
+					"operation", "ReloadSession",
+					"sessionID", sessionID,
+				))
+
+				Expect(logger).To(HaveLogMessage(
+					zap.ErrorLevel, "Session was not found!",
+					"source", "sessionManager",
+					"operation", "ReloadSession",
+					"lastUpdatedKey", "__last_updated__",
+					"sessionKey", fmt.Sprintf("level:sessions:%s", sessionID),
+					"error", expected,
+				))
+			})
+
+			It("should not reload a session if invalid connection", func() {
+				sm := getDefaultSM(logger)
+				sessionID := uuid.NewV4().String()
+
+				session := &sessionManager.Session{
+					ID:      sessionID,
+					Manager: sm,
+				}
+				sm.Client = getFaultyRedisClient()
+				err := sm.ReloadSession(session)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("connection refused"))
+
+				Expect(logger).To(HaveLogMessage(
+					zap.DebugLevel, "Reloading session...",
+					"source", "sessionManager",
+					"operation", "ReloadSession",
+					"sessionID", sessionID,
+				))
+
+				Expect(logger).To(HaveLogMessage(
+					zap.ErrorLevel, "Reloading session failed.",
+					"source", "sessionManager",
+					"operation", "ReloadSession",
+					"lastUpdatedKey", "__last_updated__",
+					"sessionKey", fmt.Sprintf("level:sessions:%s", sessionID),
+					"error", "dial tcp 0.0.0.0:9876: getsockopt: connection refused",
+				))
 			})
 		})
 	})
