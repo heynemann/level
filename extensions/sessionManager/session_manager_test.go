@@ -45,7 +45,7 @@ var _ = Describe("Session Management", func() {
 
 	Describe("Session Manager", func() {
 
-		Describe("Initialized properly", func() {
+		Describe("Initialization", func() {
 
 			It("When getting a new instance", func() {
 				sessionManager, err := sessionManager.GetSessionManager(
@@ -62,10 +62,8 @@ var _ = Describe("Session Management", func() {
 				Expect(sessionManager.Logger).NotTo(BeNil())
 				Expect(sessionManager.Client).NotTo(BeNil())
 			})
-		})
 
-		Describe("Initialized with wrong params", func() {
-			It("should not be connected to Redis", func() {
+			It("should not initialize with wrong arguments", func() {
 				sessionManager, err := sessionManager.GetSessionManager(
 					"localhost", // Redis Host
 					1249,        // Redis Port
@@ -162,6 +160,22 @@ var _ = Describe("Session Management", func() {
 				someValue, err := testClient.HGet(hashKey, "someKey").Result()
 				Expect(err).NotTo(HaveOccurred())
 				Expect(someValue).To(Equal("someValue"))
+
+				Expect(logger).To(HaveLogMessage(
+					zap.DebugLevel, "Merging sessions.",
+					"source", "sessionManager",
+					"operation", "Merge",
+					"oldSessionID", oldSessionID,
+					"sessionID", sessionID,
+				))
+
+				Expect(logger).To(HaveLogMessage(
+					zap.InfoLevel, "Sessions merged successfully.",
+					"source", "sessionManager",
+					"operation", "Merge",
+					"oldSessionID", oldSessionID,
+					"sessionID", sessionID,
+				))
 			})
 
 			It("should not merge a non-existing session", func() {
@@ -174,7 +188,48 @@ var _ = Describe("Session Management", func() {
 				Expect(count).To(Equal(0))
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(Equal("Session with session ID invalid-id was not found in session storage."))
+
+				Expect(logger).To(HaveLogMessage(
+					zap.DebugLevel, "Merging sessions.",
+					"source", "sessionManager",
+					"operation", "Merge",
+				))
+
+				Expect(logger).To(HaveLogMessage(
+					zap.ErrorLevel, "Previous session was not found.",
+					"source", "sessionManager",
+					"operation", "Merge",
+					"error", "Session was not found!",
+				))
 			})
+
+			It("should not merge if invalid connection", func() {
+				sm := getDefaultSM(logger)
+
+				sessionID := uuid.NewV4().String()
+				sm.Start(sessionID)
+
+				sm.Client = getFaultyRedisClient()
+
+				count, err := sm.Merge("invalid-id", sessionID)
+				Expect(count).To(Equal(0))
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("connection refused"))
+
+				Expect(logger).To(HaveLogMessage(
+					zap.DebugLevel, "Merging sessions.",
+					"source", "sessionManager",
+					"operation", "Merge",
+				))
+
+				Expect(logger).To(HaveLogMessage(
+					zap.ErrorLevel, "Merging sessions failed.",
+					"source", "sessionManager",
+					"operation", "Merge",
+					"error", "dial tcp 0.0.0.0:9876: getsockopt: connection refused",
+				))
+			})
+
 		})
 
 		Describe("can get session", func() {

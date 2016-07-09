@@ -52,7 +52,7 @@ func (s *SessionManager) Start(sessionID string) error {
 	hashKey := getSessionKey(sessionID)
 	timestamp := time.Now().UnixNano()
 
-	l.Debug("Starting new session.", zap.String("sessionID", hashKey), zap.Int64("timestamp", timestamp))
+	l.Debug("Starting new session.", zap.String("sessionID", hashKey), zap.Int64("sessionTimestamp", timestamp))
 	script := `
 		local res
 		res = redis.call("HSET", KEYS[1], KEYS[2], ARGV[1])
@@ -70,16 +70,23 @@ func (s *SessionManager) Start(sessionID string) error {
 		l.Error("Could not start session.", zap.Error(err))
 		return err
 	}
-	l.Info("Started session successfully.", zap.Duration("sessionStart", time.Now().Sub(start)))
+	l.Info("Started session successfully.", zap.Duration("sessionStartDuration", time.Now().Sub(start)))
 
 	return nil
 }
 
 //Merge gets all the keys from old session into new session (no overwrites done).
 func (s *SessionManager) Merge(oldSessionID, sessionID string) (int, error) {
+	l := s.Logger.With(
+		zap.String("operation", "Merge"),
+		zap.String("oldSessionID", oldSessionID),
+		zap.String("sessionID", sessionID),
+	)
+
 	oldHashKey := getSessionKey(oldSessionID)
 	hashKey := getSessionKey(sessionID)
 
+	l.Debug("Merging sessions.")
 	mergeScript := redisCli.NewScript(`
 		local values = redis.call("HGETALL", KEYS[1])
 		if (#values == 0) then
@@ -96,13 +103,17 @@ func (s *SessionManager) Merge(oldSessionID, sessionID string) (int, error) {
 
 		return keys
 	`)
+	start := time.Now()
 	totalKeys, err := mergeScript.Run(s.Client, []string{oldHashKey, hashKey}).Result()
 	if err != nil {
 		if err.Error() == "Session was not found!" {
+			l.Error("Previous session was not found.", zap.Error(err))
 			return 0, &extensions.SessionNotFoundError{SessionID: oldSessionID}
 		}
+		l.Error("Merging sessions failed.", zap.Error(err))
 		return 0, err
 	}
+	l.Info("Sessions merged successfully.", zap.Duration("sessionMergeDuration", time.Now().Sub(start)))
 	return int(totalKeys.(int64)), nil
 }
 

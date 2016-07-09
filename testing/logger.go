@@ -9,6 +9,7 @@ package testing
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/onsi/gomega/types"
 	"github.com/uber-go/zap"
@@ -208,12 +209,38 @@ type haveLogMessageMatcher struct {
 	expectedFields  []interface{}
 }
 
+func formatFields(fields []zap.Field) string {
+	kv := NewMockKV()
+	result := []string{}
+	for _, field := range fields {
+		field.AddTo(kv)
+	}
+
+	for k, v := range kv.Values {
+		result = append(result, fmt.Sprintf(
+			"\t\t\t[%s] %v",
+			k, v,
+		))
+	}
+
+	return strings.Join(result, "\n")
+}
+
 func (matcher *haveLogMessageMatcher) Match(actual interface{}) (success bool, err error) {
 	ok := testLogMessage(actual.(*MockLogger), matcher.expectedLevel, matcher.expectedMessage, matcher.expectedFields...)
 	if !ok {
+		available := []string{}
+		for _, message := range actual.(*MockLogger).Messages {
+			available = append(available, fmt.Sprintf(
+				"\t[%s] \"%v\"\n\t\tFields:\n%s",
+				message["level"],
+				message["message"],
+				formatFields(message["fields"].([]zap.Field)),
+			))
+		}
 		return false, fmt.Errorf(
-			"Log message '%v' was not found with the specified level and parameters. Available messages: %v",
-			matcher.expectedMessage, actual.(*MockLogger).Messages,
+			"Log message '%v' was not found with the specified level and parameters.\n\nAvailable messages:\n%s",
+			matcher.expectedMessage, strings.Join(available, "\n"),
 		)
 	}
 

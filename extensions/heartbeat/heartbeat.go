@@ -78,7 +78,7 @@ func (h *Heartbeat) Register() error {
 		l.Error("Could not register with service registry.", zap.Error(err))
 		return err
 	}
-	l.Info("Registered with service registry successfully.", zap.Duration("register", time.Now().Sub(start)))
+	l.Info("Registered with service registry successfully.", zap.Duration("registerDuration", time.Now().Sub(start)))
 
 	return nil
 }
