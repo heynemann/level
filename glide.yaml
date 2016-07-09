@@ -13,3 +13,5 @@ import:
 - package: github.com/nats-io/nuid
 - package: github.com/nats-io/gnatsd
 - package: github.com/mailru/easyjson
+- package: github.com/uber-go/zap
+- package: github.com/uber-go/atomic

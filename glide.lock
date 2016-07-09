@@ -1,5 +1,5 @@
-hash: a603e4add019b6b121aa3e7f30b5698ee4d08f20a4169f8ba5c59ba53abab814
-updated: 2016-07-07T22:07:35.70480466-03:00
+hash: 4335356bb18ec5b148765ffe68c6c1c867b386e792f2a1675c59457a5c72f719
+updated: 2016-07-08T22:05:16.695611914-03:00
 imports:
 - name: github.com/golang/protobuf
   version: 3852dcfda249c2097355a6aabb199a28d97b30df
@@ -7,6 +7,10 @@ imports:
   - proto
 - name: github.com/mailru/easyjson
   version: 7acac2663abbf13bd349d76e3768a9e0a9d842f3
+  subpackages:
+  - jlexer
+  - jwriter
+  - buffer
 - name: github.com/nats-io/gnatsd
   version: d0c69c11181ae3707212aa681bbf665c07d7d79e
 - name: github.com/nats-io/nats
@@ -23,6 +27,10 @@ imports:
   version: 82a02eccf12c018071eef42fbb701c0db6f1e3db
 - name: github.com/satori/go.uuid
   version: 879c5887cd475cd7864858769793b2ceb0d44feb
+- name: github.com/uber-go/atomic
+  version: e682c1008ac17bf26d2e4b5ad6cdd08520ed0b22
+- name: github.com/uber-go/zap
+  version: 63d56df197a79e16899d69b6a7665cb9b7c8ea99
 - name: golang.org/x/net
   version: b400c2eff1badec7022a8c8f5bea058b6315eed7
   subpackages:
