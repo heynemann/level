@@ -13,7 +13,15 @@ import (
 
 	"github.com/heynemann/level/messaging"
 	"github.com/nats-io/nats"
+	"github.com/uber-go/zap"
 )
+
+// PubSub is responsible for handling all operations related to Publish Subscribe infrastructure
+type PubSub struct {
+	NatsURL string
+	Conn    *nats.EncodedConn
+	Logger  zap.Logger
+}
 
 //New returns a new pubsub connection
 func New(natsURL string) (*PubSub, error) {
@@ -29,7 +37,7 @@ func New(natsURL string) (*PubSub, error) {
 
 	pubSub := PubSub{
 		NatsURL: natsURL,
-		conn:    encoded,
+		Conn:    encoded,
 	}
 
 	return &pubSub, nil
@@ -45,17 +53,11 @@ func GetEventQueue() string {
 	return "level.events"
 }
 
-// PubSub is responsible for handling all operations related to Publish Subscribe infrastructure
-type PubSub struct {
-	NatsURL string
-	conn    *nats.EncodedConn
-}
-
 // SubscribeActions subscribes a specific server to all actions arriving in its queue
 func (p *PubSub) SubscribeActions(serverName string, callback func(func(*messaging.Event), *messaging.Action)) error {
-	p.conn.Subscribe(GetServerQueue(serverName), func(subj, reply string, action *messaging.Action) {
+	p.Conn.Subscribe(GetServerQueue(serverName), func(subj, reply string, action *messaging.Action) {
 		replyFunc := func(e *messaging.Event) {
-			p.conn.Publish(reply, e)
+			p.Conn.Publish(reply, e)
 		}
 		callback(replyFunc, action)
 	})
@@ -65,7 +67,7 @@ func (p *PubSub) SubscribeActions(serverName string, callback func(func(*messagi
 // RequestAction requests an action to a given server and returns its Event as response
 func (p *PubSub) RequestAction(serverName string, action *messaging.Action, timeout time.Duration) (*messaging.Event, error) {
 	var response messaging.Event
-	err := p.conn.Request(GetServerQueue(serverName), action, &response, timeout)
+	err := p.Conn.Request(GetServerQueue(serverName), action, &response, timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -75,12 +77,12 @@ func (p *PubSub) RequestAction(serverName string, action *messaging.Action, time
 
 // SubscribeEvents subscribes to all events arriving from the servers
 func (p *PubSub) SubscribeEvents(callback func(*messaging.Event)) error {
-	p.conn.Subscribe(GetEventQueue(), callback)
+	p.Conn.Subscribe(GetEventQueue(), callback)
 	return nil
 }
 
 // PublishEvent publishes an event to all the channels
 func (p *PubSub) PublishEvent(event *messaging.Event) error {
-	p.conn.Publish(GetEventQueue(), event)
+	p.Conn.Publish(GetEventQueue(), event)
 	return nil
 }

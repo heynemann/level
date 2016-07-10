@@ -5,7 +5,7 @@
 // http://www.opensource.org/licenses/mit-license
 // Copyright © 2016 Bernardo Heynemann <heynemann@gmail.com>
 
-package heartbeat_test
+package channel_test
 
 import (
 	. "github.com/onsi/ginkgo"
@@ -14,7 +14,7 @@ import (
 	"testing"
 )
 
-func TestHeartbeatExtension(t *testing.T) {
+func TestChannel(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Extensions/Heartbeat Suite")
+	RunSpecs(t, "Channel Suite")
 }

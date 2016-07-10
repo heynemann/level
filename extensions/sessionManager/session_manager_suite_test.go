@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestSessionManager(t *testing.T) {
+func TestSessionManagerExtension(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Extensions/SessionManager Suite")
 }

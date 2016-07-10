@@ -14,7 +14,7 @@ import (
 	"testing"
 )
 
-func TestPubsub(t *testing.T) {
+func TestRedisExtension(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Extensions/Redis Suite")
 }
