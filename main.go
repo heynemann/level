@@ -11,9 +11,11 @@ import (
 	"fmt"
 
 	"github.com/heynemann/level/extensions/sessionManager"
+	"github.com/uber-go/zap"
 )
 
 func main() {
-	s, _ := sessionManager.GetSessionManager("localhost", 7777, "", 0, 180)
+	logger := zap.NewJSON()
+	s, _ := sessionManager.GetRedisSessionManager("localhost", 7777, "", 0, 180, logger)
 	fmt.Println("Hello!", s)
 }

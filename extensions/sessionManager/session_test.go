@@ -78,6 +78,21 @@ var _ = Describe("Session Management", func() {
 				value := session.Get("someKey")
 				Expect(value).To(Equal("otherValue"))
 			})
+
+			It("should fail if bad connection", func() {
+				sm := getDefaultSM(logger)
+				sessionID := uuid.NewV4().String()
+				sm.Start(sessionID)
+
+				session, err := sm.Load(sessionID)
+				Expect(err).NotTo(HaveOccurred())
+
+				sm.Client = getFaultyRedisClient()
+
+				value := session.Get("someKey")
+				Expect(value).To(BeNil())
+			})
+
 		})
 
 		Describe("Setting Data", func() {
@@ -130,6 +145,21 @@ var _ = Describe("Session Management", func() {
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("Could not serialize/deserialize value"))
 			})
+
+			It("Should fail if connection is flaky", func() {
+				sm := getDefaultSM(logger)
+				sessionID := uuid.NewV4().String()
+				sm.Start(sessionID)
+
+				session, err := sm.Load(sessionID)
+				Expect(err).NotTo(HaveOccurred())
+
+				sm.Client = getFaultyRedisClient()
+				err = session.Set("aKey", 10)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("connection refused"))
+			})
+
 		})
 	})
 })

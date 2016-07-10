@@ -48,7 +48,7 @@ var _ = Describe("Session Management", func() {
 		Describe("Initialization", func() {
 
 			It("When getting a new instance", func() {
-				sessionManager, err := sessionManager.GetSessionManager(
+				sessionManager, err := sessionManager.GetRedisSessionManager(
 					"localhost", // Redis Host
 					7777,        // Redis Port
 					"",          // Redis Pass
@@ -64,7 +64,7 @@ var _ = Describe("Session Management", func() {
 			})
 
 			It("should not initialize with wrong arguments", func() {
-				sessionManager, err := sessionManager.GetSessionManager(
+				sessionManager, err := sessionManager.GetRedisSessionManager(
 					"localhost", // Redis Host
 					1249,        // Redis Port
 					"",          // Redis Pass
@@ -402,6 +402,136 @@ var _ = Describe("Session Management", func() {
 					"lastUpdatedKey", "__last_updated__",
 					"sessionKey", fmt.Sprintf("level:sessions:%s", sessionID),
 					"error", "dial tcp 0.0.0.0:9876: getsockopt: connection refused",
+				))
+			})
+		})
+
+		Describe("Validating sessions", func() {
+			It("should validate a new session", func() {
+				sm := getDefaultSM(logger)
+				sessionID := uuid.NewV4().String()
+				err := sm.Start(sessionID)
+				Expect(err).NotTo(HaveOccurred())
+
+				session, err := sm.Load(sessionID)
+				Expect(err).NotTo(HaveOccurred())
+
+				valid, err := sm.ValidateSession(session)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(valid).To(BeTrue())
+
+				Expect(logger).To(HaveLogMessage(
+					zap.DebugLevel, "Validating session...",
+					"source", "sessionManager",
+					"operation", "ValidateSession",
+					"sessionID", sessionID,
+				))
+
+				Expect(logger).To(HaveLogMessage(
+					zap.InfoLevel, "Session validated successfully.",
+					"source", "sessionManager",
+					"operation", "ValidateSession",
+					"sessionID", sessionID,
+					"isValid", true,
+				))
+			})
+
+			It("should invalidate an old session", func() {
+				sm := getDefaultSM(logger)
+				sessionID := uuid.NewV4().String()
+				err := sm.Start(sessionID)
+				Expect(err).NotTo(HaveOccurred())
+
+				session := &sessionManager.Session{
+					ID:          sessionID,
+					Manager:     sm,
+					LastUpdated: 0,
+				}
+				valid, err := sm.ValidateSession(session)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(valid).To(BeFalse())
+
+				Expect(logger).To(HaveLogMessage(
+					zap.DebugLevel, "Validating session...",
+					"source", "sessionManager",
+					"operation", "ValidateSession",
+					"sessionID", sessionID,
+				))
+
+				Expect(logger).To(HaveLogMessage(
+					zap.InfoLevel, "Session validated successfully.",
+					"source", "sessionManager",
+					"operation", "ValidateSession",
+					"sessionID", sessionID,
+					"isValid", false,
+				))
+			})
+
+			It("should fail if bad connection", func() {
+				sm := getDefaultSM(logger)
+				sessionID := uuid.NewV4().String()
+				err := sm.Start(sessionID)
+				Expect(err).NotTo(HaveOccurred())
+
+				session := &sessionManager.Session{
+					ID:      sessionID,
+					Manager: sm,
+				}
+
+				sm.Client = getFaultyRedisClient()
+
+				_, err = sm.ValidateSession(session)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("connection refused"))
+
+				Expect(logger).To(HaveLogMessage(
+					zap.DebugLevel, "Validating session...",
+					"source", "sessionManager",
+					"operation", "ValidateSession",
+					"sessionID", sessionID,
+				))
+
+				Expect(logger).To(HaveLogMessage(
+					zap.ErrorLevel, "Could not validate session.",
+					"source", "sessionManager",
+					"operation", "ValidateSession",
+					"sessionID", sessionID,
+					"error", "dial tcp 0.0.0.0:9876: getsockopt: connection refused",
+				))
+			})
+
+			It("should fail if corrupt data", func() {
+				sm := getDefaultSM(logger)
+				sessionID := uuid.NewV4().String()
+				err := sm.Start(sessionID)
+				Expect(err).NotTo(HaveOccurred())
+
+				session := &sessionManager.Session{
+					ID:      sessionID,
+					Manager: sm,
+				}
+
+				hashKey := fmt.Sprintf("level:sessions:%s", sessionID)
+				_, err = testClient.HSet(hashKey, sessionManager.GetLastUpdatedKey(), "qwe").Result()
+				Expect(err).NotTo(HaveOccurred())
+
+				_, err = sm.ValidateSession(session)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("parsing \"qwe\": invalid syntax"))
+
+				Expect(logger).To(HaveLogMessage(
+					zap.DebugLevel, "Validating session...",
+					"source", "sessionManager",
+					"operation", "ValidateSession",
+					"sessionID", sessionID,
+				))
+
+				Expect(logger).To(HaveLogMessage(
+					zap.ErrorLevel, "Could not validate session (invalid timestamp).",
+					"source", "sessionManager",
+					"operation", "ValidateSession",
+					"sessionID", sessionID,
+					"error", "strconv.ParseInt: parsing \"qwe\": invalid syntax",
 				))
 			})
 		})

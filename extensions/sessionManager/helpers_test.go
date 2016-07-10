@@ -12,8 +12,8 @@ import (
 	"github.com/uber-go/zap"
 )
 
-func getDefaultSM(logger zap.Logger) *sessionManager.SessionManager {
-	sessionManager, _ := sessionManager.GetSessionManager(
+func getDefaultSM(logger zap.Logger) *sessionManager.RedisSessionManager {
+	sessionManager, _ := sessionManager.GetRedisSessionManager(
 		"localhost", // Redis Host
 		7777,        // Redis Port
 		"",          // Redis Pass

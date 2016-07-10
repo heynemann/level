@@ -9,6 +9,7 @@ package sessionManager
 
 import (
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/heynemann/level/extensions"
@@ -18,21 +19,30 @@ import (
 	redisCli "gopkg.in/redis.v4"
 )
 
+type SessionManager interface {
+	Start(sessionID string) error
+	Merge(oldSessionID, sessionID string) (int, error)
+	Load(sessionID string) (*Session, error)
+	ReloadSession(session *Session) error
+	ValidateSession(session *Session) (bool, error)
+	SetKey(session *Session, key string, value interface{}) error
+}
+
 // SessionManager is responsible for handling session data
-type SessionManager struct {
+type RedisSessionManager struct {
 	Expiration int
 	Logger     zap.Logger
 	Client     *redisCli.Client
 }
 
 //GetSessionManager returns a connected SessionManager ready to be used.
-func GetSessionManager(redisHost string, redisPort int, redisPass string, redisDB int, expiration int, logger zap.Logger) (*SessionManager, error) {
+func GetRedisSessionManager(redisHost string, redisPort int, redisPass string, redisDB int, expiration int, logger zap.Logger) (*RedisSessionManager, error) {
 	l := logger.With(
 		zap.String("source", "sessionManager"),
 		zap.Duration("expiration", time.Duration(expiration)*time.Second),
 	)
 
-	sessionManager := &SessionManager{
+	sessionManager := &RedisSessionManager{
 		Expiration: expiration,
 		Logger:     l,
 	}
@@ -47,7 +57,7 @@ func GetSessionManager(redisHost string, redisPort int, redisPass string, redisD
 }
 
 //Start starts a new session in the storage (or resumes an old one)
-func (s *SessionManager) Start(sessionID string) error {
+func (s *RedisSessionManager) Start(sessionID string) error {
 	l := s.Logger.With(zap.String("operation", "Start"))
 	hashKey := getSessionKey(sessionID)
 	timestamp := time.Now().UnixNano()
@@ -76,7 +86,7 @@ func (s *SessionManager) Start(sessionID string) error {
 }
 
 //Merge gets all the keys from old session into new session (no overwrites done).
-func (s *SessionManager) Merge(oldSessionID, sessionID string) (int, error) {
+func (s *RedisSessionManager) Merge(oldSessionID, sessionID string) (int, error) {
 	l := s.Logger.With(
 		zap.String("operation", "Merge"),
 		zap.String("oldSessionID", oldSessionID),
@@ -118,7 +128,7 @@ func (s *SessionManager) Merge(oldSessionID, sessionID string) (int, error) {
 }
 
 //Load loads a session from the storage with all its items
-func (s *SessionManager) Load(sessionID string) (*Session, error) {
+func (s *RedisSessionManager) Load(sessionID string) (*Session, error) {
 	l := s.Logger.With(
 		zap.String("operation", "Load"),
 		zap.String("sessionID", sessionID),
@@ -141,7 +151,7 @@ func (s *SessionManager) Load(sessionID string) (*Session, error) {
 }
 
 //ReloadSession reloads the data in a session
-func (s *SessionManager) ReloadSession(session *Session) error {
+func (s *RedisSessionManager) ReloadSession(session *Session) error {
 	l := s.Logger.With(
 		zap.String("operation", "ReloadSession"),
 		zap.String("sessionID", session.ID),
@@ -185,6 +195,67 @@ func (s *SessionManager) ReloadSession(session *Session) error {
 	}
 
 	l.Info("Session reloaded successfully.")
+
+	return nil
+}
+
+//ValidateSession indicates whether a session is valid or should be updated
+func (s *RedisSessionManager) ValidateSession(session *Session) (bool, error) {
+	l := s.Logger.With(
+		zap.String("operation", "ValidateSession"),
+		zap.String("sessionID", session.ID),
+	)
+
+	lastUpdatedKey := GetLastUpdatedKey()
+	hashKey := getSessionKey(session.ID)
+	l.Debug("Validating session...")
+	ts, err := s.Client.HGet(hashKey, lastUpdatedKey).Result()
+	if err != nil {
+		l.Error("Could not validate session.", zap.Error(err))
+		return false, err
+	}
+
+	timestamp, err := strconv.ParseInt(ts, 10, 64)
+	if err != nil {
+		l.Error(
+			"Could not validate session (invalid timestamp).",
+			zap.String("timestamp", ts),
+			zap.Error(err),
+		)
+		return false, err
+	}
+
+	isValid := timestamp == session.LastUpdated
+	l.Info("Session validated successfully.", zap.Bool("isValid", isValid))
+
+	return isValid, nil
+}
+
+//SetKey sets a key in the specified session
+func (s *RedisSessionManager) SetKey(session *Session, key string, value interface{}) error {
+	lastUpdatedKey := GetLastUpdatedKey()
+	hashKey := getSessionKey(session.ID)
+	serialized, err := extensions.Serialize(value)
+	if err != nil {
+		if strings.HasPrefix(err.Error(), "msgpack: Encode(unsupported") {
+			return &extensions.UnserializableItemError{SessionID: session.ID, Item: value}
+		}
+		return err
+	}
+
+	ts := time.Now().UnixNano()
+
+	_, err = s.Client.HMSet(hashKey, map[string]string{
+		key:            serialized,
+		lastUpdatedKey: strconv.FormatInt(ts, 10),
+	}).Result()
+
+	if err != nil {
+		return err
+	}
+
+	session.data[key] = value
+	session.LastUpdated = ts
 
 	return nil
 }
