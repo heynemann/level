@@ -9,8 +9,11 @@ package channel
 
 import (
 	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
+	"github.com/heynemann/level/extensions/pubsub"
 	"github.com/heynemann/level/extensions/redis"
 	"github.com/iris-contrib/middleware/logger"
 	"github.com/iris-contrib/middleware/recovery"
@@ -22,9 +25,10 @@ import (
 
 //Channel is responsible for communicating clients and backend servers
 type Channel struct {
-	Client        *redisCli.Client
+	Redis         *redisCli.Client
 	Config        *viper.Viper
 	Logger        zap.Logger
+	PubSub        *pubsub.PubSub
 	ServerOptions *Options
 	WebApp        *iris.Framework
 }
@@ -62,11 +66,22 @@ func (c *Channel) initializeChannel() error {
 	l.Debug("Initializing channel...")
 
 	c.setDefaultConfigurationOptions()
-	err := c.initializeRedis()
+
+	err := c.loadConfiguration()
 	if err != nil {
 		return err
 	}
-	//c.initializeNATS()
+
+	err = c.initializeRedis()
+	if err != nil {
+		return err
+	}
+
+	err = c.initializePubSub()
+	if err != nil {
+		return err
+	}
+
 	c.initializeWebApp()
 
 	l.Info(
@@ -78,34 +93,79 @@ func (c *Channel) initializeChannel() error {
 }
 
 func (c *Channel) setDefaultConfigurationOptions() {
-	c.Config.SetDefault("channel.workingString", "WORKING")
+	c.Config.SetDefault("channel.workingText", "WORKING")
 
-	c.Config.SetDefault("services.redis.host", "localhost")
-	c.Config.SetDefault("services.redis.port", 7777)
-	c.Config.SetDefault("services.redis.password", "")
-	c.Config.SetDefault("services.redis.db", 0)
+	c.Config.SetDefault("channel.services.redis.host", "localhost")
+	c.Config.SetDefault("channel.services.redis.port", 7777)
+	c.Config.SetDefault("channel.services.redis.password", "")
+	c.Config.SetDefault("channel.services.redis.db", 0)
+
+	c.Config.SetDefault("channel.services.nats.URL", "nats://localhost:7778")
+}
+
+func (c *Channel) loadConfiguration() error {
+	l := c.Logger.With(
+		zap.String("operation", "loadConfiguration"),
+		zap.String("configFile", c.ServerOptions.ConfigFile),
+	)
+
+	absConfigFile, err := filepath.Abs(c.ServerOptions.ConfigFile)
+	if err != nil {
+		l.Error("Configuration file not found.", zap.Error(err))
+		return err
+	}
+
+	l = l.With(
+		zap.String("absConfigFile", absConfigFile),
+	)
+
+	l.Info("Loading configuration.")
+
+	if _, err := os.Stat(absConfigFile); os.IsNotExist(err) {
+		l.Error("Configuration file not found.", zap.Error(err))
+		return err
+	}
+
+	c.Config.SetConfigFile(c.ServerOptions.ConfigFile)
+	c.Config.SetEnvPrefix("level") // read in environment variables that match
+	c.Config.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+	c.Config.AutomaticEnv()
+
+	// If a config file is found, read it in.
+	if err := c.Config.ReadInConfig(); err != nil {
+		l.Error("Configuration could not be loaded.", zap.Error(err))
+		return err
+	}
+
+	l.Info(
+		"Configuration loaded successfully.",
+		zap.String("configPath", c.Config.ConfigFileUsed()),
+	)
+	return nil
 }
 
 func (c *Channel) initializeRedis() error {
-	l := c.Logger.With(
-		zap.String("operation", "initializeRedis"),
-	)
-
-	l.Debug("Initializing redis...")
 	cli, err := redis.New(
-		c.Config.GetString("services.redis.host"),
-		c.Config.GetInt("services.redis.port"),
-		c.Config.GetString("services.redis.password"),
-		c.Config.GetInt("services.redis.db"),
+		c.Config.GetString("channel.services.redis.host"),
+		c.Config.GetInt("channel.services.redis.port"),
+		c.Config.GetString("channel.services.redis.password"),
+		c.Config.GetInt("channel.services.redis.db"),
 		c.Logger,
 	)
 	if err != nil {
-		l.Error("Initializing redis failed.", zap.Error(err))
 		return err
 	}
-	l.Info("Redis initialized successfully.")
-	c.Client = cli
+	c.Redis = cli
 
+	return nil
+}
+
+func (c *Channel) initializePubSub() error {
+	pubsub, err := pubsub.New(c.Config.GetString("channel.services.nats.URL"), c.Logger)
+	if err != nil {
+		return err
+	}
+	c.PubSub = pubsub
 	return nil
 }
 

@@ -13,7 +13,7 @@ setup: setup-hooks
 build:
 	@go build $(PACKAGES)
 
-test: test-redis
+test: test-redis test-gnatsd-shutdown
 	@ginkgo --cover $(DIRS)
 
 test-coverage: test

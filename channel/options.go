@@ -17,10 +17,20 @@ type Options struct {
 
 //DefaultOptions returns local development options for level channel
 func DefaultOptions() *Options {
+	return NewOptions(
+		"0.0.0.0",
+		3000,
+		true,
+		"../config/default.yaml",
+	)
+}
+
+//NewOptions returns new options to create a channel with
+func NewOptions(host string, port int, debug bool, configFile string) *Options {
 	return &Options{
-		Host:       "0.0.0.0",
-		Port:       3000,
-		Debug:      true,
-		ConfigFile: "",
+		Host:       host,
+		Port:       port,
+		Debug:      debug,
+		ConfigFile: configFile,
 	}
 }

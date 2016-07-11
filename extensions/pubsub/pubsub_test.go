@@ -12,6 +12,7 @@ import (
 
 	"github.com/heynemann/level/extensions/pubsub"
 	"github.com/heynemann/level/messaging"
+	. "github.com/heynemann/level/testing"
 	gnatsServer "github.com/nats-io/gnatsd/server"
 	"github.com/nats-io/nats"
 	. "github.com/onsi/ginkgo"
@@ -21,8 +22,10 @@ import (
 
 var _ = Describe("Pubsub", func() {
 
+	var logger *MockLogger
 	var NATSServer *gnatsServer.Server
 	BeforeEach(func() {
+		logger = NewMockLogger()
 		NATSServer = RunDefaultServer()
 	})
 	AfterEach(func() {
@@ -35,7 +38,7 @@ var _ = Describe("Pubsub", func() {
 			It("should allow servers to subscribe to actions and for them to be published", func() {
 				var receivedAction *messaging.Action
 				serverName := uuid.NewV4().String()
-				pubSub, err := pubsub.New(nats.DefaultURL)
+				pubSub, err := pubsub.New(nats.DefaultURL, logger)
 				Expect(err).NotTo(HaveOccurred())
 
 				pubSub.SubscribeActions(serverName, func(reply func(*messaging.Event), action *messaging.Action) {
@@ -61,7 +64,7 @@ var _ = Describe("Pubsub", func() {
 		Describe("Publish/Subscribe Messages", func() {
 			It("should allow servers to publish events to clients", func() {
 				var receivedEvent *messaging.Event
-				pubSub, err := pubsub.New(nats.DefaultURL)
+				pubSub, err := pubsub.New(nats.DefaultURL, logger)
 				Expect(err).NotTo(HaveOccurred())
 
 				pubSub.SubscribeEvents(func(event *messaging.Event) {

@@ -1,0 +1,5 @@
+channel:
+  services:
+    redis:
+      host: localhost
+      port: 9876

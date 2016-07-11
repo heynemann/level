@@ -11,13 +11,8 @@
 package pubsub_test
 
 import (
-	"errors"
 	"fmt"
-	"time"
 
-	gnatsdServer "github.com/nats-io/gnatsd/server"
-	gnatsdTest "github.com/nats-io/gnatsd/test"
-	"github.com/nats-io/nats"
 	"github.com/onsi/gomega/types"
 )
 
@@ -66,45 +61,4 @@ func (matcher *mapEqualMatcher) FailureMessage(actual interface{}) (message stri
 
 func (matcher *mapEqualMatcher) NegatedFailureMessage(actual interface{}) (message string) {
 	return fmt.Sprintf("Expected\n\t%#v\nnot to be the same as \n\t%#v", actual, matcher.expected)
-}
-
-// Dumb wait program to sync on callbacks, etc... Will timeout
-func Wait(ch chan bool) error {
-	return WaitTime(ch, 5*time.Second)
-}
-
-// Wait for a chan with a timeout.
-func WaitTime(ch chan bool, timeout time.Duration) error {
-	select {
-	case <-ch:
-		return nil
-	case <-time.After(timeout):
-	}
-	return errors.New("timeout")
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// Running gnatsd server in separate Go routines
-////////////////////////////////////////////////////////////////////////////////
-
-// RunDefaultServer will run a server on the default port.
-func RunDefaultServer() *gnatsdServer.Server {
-	return RunServerOnPort(nats.DefaultPort)
-}
-
-// RunServerOnPort will run a server on the given port.
-func RunServerOnPort(port int) *gnatsdServer.Server {
-	opts := gnatsdTest.DefaultTestOptions
-	opts.Port = port
-	return RunServerWithOptions(opts)
-}
-
-// RunServerWithOptions will run a server with the given options.
-func RunServerWithOptions(opts gnatsdServer.Options) *gnatsdServer.Server {
-	return gnatsdTest.RunServer(&opts)
-}
-
-// RunServerWithConfig will run a server with the given configuration file.
-func RunServerWithConfig(configFile string) (*gnatsdServer.Server, *gnatsdServer.Options) {
-	return gnatsdTest.RunServerWithConfig(configFile)
 }

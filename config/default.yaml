@@ -1,0 +1,8 @@
+channel:
+  services:
+    redis:
+      host: 127.0.0.1
+      port: 7777
+    nats:
+      URL: nats://localhost:7778
+  workingText: WORKING

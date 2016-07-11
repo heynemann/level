@@ -24,7 +24,7 @@ type PubSub struct {
 }
 
 //New returns a new pubsub connection
-func New(natsURL string) (*PubSub, error) {
+func New(natsURL string, logger zap.Logger) (*PubSub, error) {
 	conn, err := nats.Connect(natsURL)
 	if err != nil {
 		return nil, err
@@ -38,6 +38,7 @@ func New(natsURL string) (*PubSub, error) {
 	pubSub := PubSub{
 		NatsURL: natsURL,
 		Conn:    encoded,
+		Logger:  logger,
 	}
 
 	return &pubSub, nil

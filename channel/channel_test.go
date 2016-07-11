@@ -10,6 +10,7 @@ package channel_test
 import (
 	"github.com/heynemann/level/channel"
 	. "github.com/heynemann/level/testing"
+	gnatsdServer "github.com/nats-io/gnatsd/server"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/uber-go/zap"
@@ -17,9 +18,15 @@ import (
 
 var _ = Describe("Channel", func() {
 	var logger *MockLogger
+	var NATSServer *gnatsdServer.Server
 
 	BeforeEach(func() {
 		logger = NewMockLogger()
+		NATSServer = RunServerOnPort(7778)
+	})
+	AfterEach(func() {
+		NATSServer.Shutdown()
+		NATSServer = nil
 	})
 
 	Describe("Channel", func() {
@@ -59,7 +66,55 @@ var _ = Describe("Channel", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(channel).NotTo(BeNil())
 
-				Expect(channel.Config.GetString("channel.workingString")).To(Equal("WORKING"))
+				Expect(channel.Config.GetString("channel.workingText")).To(Equal("WORKING"))
+			})
+		})
+
+		Describe("Channel Load Configuration", func() {
+			It("Should load configuration from file", func() {
+				options := channel.DefaultOptions()
+				options.ConfigFile = "../config/default.yaml"
+
+				channel, err := channel.New(options, logger)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(channel.Config).NotTo(BeNil())
+
+				expected := channel.Config.GetString("channel.services.redis.host")
+				Expect(expected).To(Equal("127.0.0.1"))
+			})
+		})
+
+		Describe("Channel Initialization", func() {
+			It("should initialize redis", func() {
+				channel, err := channel.New(nil, logger)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(channel).NotTo(BeNil())
+
+				Expect(channel.Redis).NotTo(BeNil())
+
+				Expect(logger).To(HaveLogMessage(
+					zap.DebugLevel, "Connecting to Redis...",
+					"source", "channel",
+				))
+
+				Expect(logger).To(HaveLogMessage(
+					zap.InfoLevel, "Connected to Redis successfully.",
+					"source", "channel",
+				))
+			})
+
+			//It("should fail if invalid connection to redis", func() {
+			//options := channel.
+			//channel, err := channel.New(nil, logger)
+			//Expect(err).To(HaveOccurred())
+			//})
+
+			It("should initialize pubsub", func() {
+				channel, err := channel.New(nil, logger)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(channel).NotTo(BeNil())
+
+				Expect(channel.PubSub).NotTo(BeNil())
 			})
 		})
 	})
