@@ -82,6 +82,26 @@ var _ = Describe("Channel", func() {
 				expected := channel.Config.GetString("channel.services.redis.host")
 				Expect(expected).To(Equal("127.0.0.1"))
 			})
+
+			It("Should fail with non-existent config file", func() {
+				options := channel.DefaultOptions()
+				options.ConfigFile = "../config/does-not-exist.yaml"
+
+				channel, err := channel.New(options, logger)
+				Expect(channel).To(BeNil())
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("no such file or directory"))
+			})
+
+			It("Should fail with invalid yaml", func() {
+				options := channel.DefaultOptions()
+				options.ConfigFile = "../config/invalid.yaml"
+
+				channel, err := channel.New(options, logger)
+				Expect(channel).To(BeNil())
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("yaml: unmarshal errors"))
+			})
 		})
 
 		Describe("Channel Initialization", func() {
@@ -103,11 +123,18 @@ var _ = Describe("Channel", func() {
 				))
 			})
 
-			//It("should fail if invalid connection to redis", func() {
-			//options := channel.
-			//channel, err := channel.New(nil, logger)
-			//Expect(err).To(HaveOccurred())
-			//})
+			It("should fail if invalid connection to redis", func() {
+				options := channel.NewOptions(
+					"0.0.0.0",
+					3000,
+					true,
+					"../config/invalid-redis.yaml",
+				)
+				channel, err := channel.New(options, logger)
+				Expect(channel).To(BeNil())
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("connection refused"))
+			})
 
 			It("should initialize pubsub", func() {
 				channel, err := channel.New(nil, logger)
@@ -116,6 +143,21 @@ var _ = Describe("Channel", func() {
 
 				Expect(channel.PubSub).NotTo(BeNil())
 			})
+
+			It("should initialize pubsub with invalid nsq", func() {
+				options := channel.NewOptions(
+					"0.0.0.0",
+					3000,
+					true,
+					"../config/invalid-nats.yaml",
+				)
+				channel, err := channel.New(options, logger)
+
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("nats: no servers available for connection"))
+				Expect(channel).To(BeNil())
+			})
+
 		})
 	})
 })

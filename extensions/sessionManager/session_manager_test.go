@@ -83,8 +83,10 @@ var _ = Describe("Session Management", func() {
 			It("should start a session when provided with session id", func() {
 				sm := getDefaultSM(logger)
 				sessionID := uuid.NewV4().String()
-				err := sm.Start(sessionID)
+				session, err := sm.Start(sessionID)
 				Expect(err).NotTo(HaveOccurred())
+				Expect(session).NotTo(BeNil())
+				Expect(session.ID).To(Equal(sessionID))
 
 				hashKey := fmt.Sprintf("level:sessions:%s", sessionID)
 				exists, err := testClient.Exists(hashKey).Result()
@@ -113,7 +115,7 @@ var _ = Describe("Session Management", func() {
 				sessionID := uuid.NewV4().String()
 
 				sm.Client = getFaultyRedisClient()
-				err := sm.Start(sessionID)
+				_, err := sm.Start(sessionID)
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("connection refused"))
 
@@ -410,7 +412,7 @@ var _ = Describe("Session Management", func() {
 			It("should validate a new session", func() {
 				sm := getDefaultSM(logger)
 				sessionID := uuid.NewV4().String()
-				err := sm.Start(sessionID)
+				_, err := sm.Start(sessionID)
 				Expect(err).NotTo(HaveOccurred())
 
 				session, err := sm.Load(sessionID)
@@ -439,7 +441,7 @@ var _ = Describe("Session Management", func() {
 			It("should invalidate an old session", func() {
 				sm := getDefaultSM(logger)
 				sessionID := uuid.NewV4().String()
-				err := sm.Start(sessionID)
+				_, err := sm.Start(sessionID)
 				Expect(err).NotTo(HaveOccurred())
 
 				session := &sessionManager.Session{
@@ -470,7 +472,7 @@ var _ = Describe("Session Management", func() {
 			It("should fail if bad connection", func() {
 				sm := getDefaultSM(logger)
 				sessionID := uuid.NewV4().String()
-				err := sm.Start(sessionID)
+				_, err := sm.Start(sessionID)
 				Expect(err).NotTo(HaveOccurred())
 
 				session := &sessionManager.Session{
@@ -503,7 +505,7 @@ var _ = Describe("Session Management", func() {
 			It("should fail if corrupt data", func() {
 				sm := getDefaultSM(logger)
 				sessionID := uuid.NewV4().String()
-				err := sm.Start(sessionID)
+				_, err := sm.Start(sessionID)
 				Expect(err).NotTo(HaveOccurred())
 
 				session := &sessionManager.Session{

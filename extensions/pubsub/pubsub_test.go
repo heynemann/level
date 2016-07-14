@@ -10,9 +10,16 @@ package pubsub_test
 import (
 	"time"
 
+	"golang.org/x/net/websocket"
+
 	"github.com/heynemann/level/extensions/pubsub"
+	"github.com/heynemann/level/extensions/sessionManager"
 	"github.com/heynemann/level/messaging"
 	. "github.com/heynemann/level/testing"
+	"github.com/iris-contrib/middleware/cors"
+	"github.com/kataras/iris"
+	"github.com/kataras/iris/config"
+	irisSocket "github.com/kataras/iris/websocket"
 	gnatsServer "github.com/nats-io/gnatsd/server"
 	"github.com/nats-io/nats"
 	. "github.com/onsi/ginkgo"
@@ -20,13 +27,41 @@ import (
 	"github.com/satori/go.uuid"
 )
 
+func getServer(pubSub *pubsub.PubSub) *iris.Framework {
+	conf := config.Iris{
+		DisableBanner: true,
+	}
+	s := iris.New(conf)
+
+	opt := cors.Options{AllowedOrigins: []string{"*"}}
+	s.Use(cors.New(opt)) // crs
+
+	s.Config.Websocket.Endpoint = "/"
+	ws := s.Websocket // get the websocket server
+	ws.OnConnection(func(socket irisSocket.Connection) {
+		err := pubSub.RegisterPlayer(socket)
+		Expect(err).NotTo(HaveOccurred())
+	})
+
+	go func() {
+		s.Listen("localhost:9999")
+	}()
+
+	return s
+}
+
 var _ = Describe("Pubsub", func() {
 
 	var logger *MockLogger
 	var NATSServer *gnatsServer.Server
+	var manager sessionManager.SessionManager
 	BeforeEach(func() {
+		var err error
+
 		logger = NewMockLogger()
 		NATSServer = RunDefaultServer()
+		manager, err = sessionManager.GetRedisSessionManager("0.0.0.0", 7777, "", 0, 180, logger)
+		Expect(err).NotTo(HaveOccurred())
 	})
 	AfterEach(func() {
 		NATSServer.Shutdown()
@@ -38,7 +73,7 @@ var _ = Describe("Pubsub", func() {
 			It("should allow servers to subscribe to actions and for them to be published", func() {
 				var receivedAction *messaging.Action
 				serverName := uuid.NewV4().String()
-				pubSub, err := pubsub.New(nats.DefaultURL, logger)
+				pubSub, err := pubsub.New(nats.DefaultURL, logger, manager)
 				Expect(err).NotTo(HaveOccurred())
 
 				pubSub.SubscribeActions(serverName, func(reply func(*messaging.Event), action *messaging.Action) {
@@ -64,7 +99,7 @@ var _ = Describe("Pubsub", func() {
 		Describe("Publish/Subscribe Messages", func() {
 			It("should allow servers to publish events to clients", func() {
 				var receivedEvent *messaging.Event
-				pubSub, err := pubsub.New(nats.DefaultURL, logger)
+				pubSub, err := pubsub.New(nats.DefaultURL, logger, manager)
 				Expect(err).NotTo(HaveOccurred())
 
 				pubSub.SubscribeEvents(func(event *messaging.Event) {
@@ -80,6 +115,24 @@ var _ = Describe("Pubsub", func() {
 				Expect(receivedEvent.Type).To(Equal(expectedEvent.Type))
 				Expect(receivedEvent.Payload).To(MapEqual(expectedEvent.Payload))
 			})
+		})
+	})
+
+	Describe("WebSocket connection", func() {
+		It("Should allow websocket connection", func() {
+			pubSub, err := pubsub.New(nats.DefaultURL, logger, manager)
+			Expect(err).NotTo(HaveOccurred())
+
+			server := getServer(pubSub)
+			Expect(server).NotTo(BeNil())
+			time.Sleep(100 * time.Millisecond)
+
+			_, err = websocket.Dial("ws://localhost:9999/", "", "http://localhost:9999/")
+			Expect(err).NotTo(HaveOccurred())
+
+			time.Sleep(10 * time.Millisecond)
+
+			Expect(pubSub.ConnectedPlayers).To(HaveLen(1))
 		})
 	})
 })

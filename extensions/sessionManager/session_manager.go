@@ -19,8 +19,9 @@ import (
 	redisCli "gopkg.in/redis.v4"
 )
 
+//SessionManager represents a storage for sessions
 type SessionManager interface {
-	Start(sessionID string) error
+	Start(sessionID string) (*Session, error)
 	Merge(oldSessionID, sessionID string) (int, error)
 	Load(sessionID string) (*Session, error)
 	ReloadSession(session *Session) error
@@ -28,14 +29,14 @@ type SessionManager interface {
 	SetKey(session *Session, key string, value interface{}) error
 }
 
-// SessionManager is responsible for handling session data
+//RedisSessionManager is responsible for handling session data
 type RedisSessionManager struct {
 	Expiration int
 	Logger     zap.Logger
 	Client     *redisCli.Client
 }
 
-//GetSessionManager returns a connected SessionManager ready to be used.
+//GetRedisSessionManager returns a connected SessionManager ready to be used.
 func GetRedisSessionManager(redisHost string, redisPort int, redisPass string, redisDB int, expiration int, logger zap.Logger) (*RedisSessionManager, error) {
 	l := logger.With(
 		zap.String("source", "sessionManager"),
@@ -57,7 +58,7 @@ func GetRedisSessionManager(redisHost string, redisPort int, redisPass string, r
 }
 
 //Start starts a new session in the storage (or resumes an old one)
-func (s *RedisSessionManager) Start(sessionID string) error {
+func (s *RedisSessionManager) Start(sessionID string) (*Session, error) {
 	l := s.Logger.With(zap.String("operation", "Start"))
 	hashKey := getSessionKey(sessionID)
 	timestamp := time.Now().UnixNano()
@@ -78,11 +79,16 @@ func (s *RedisSessionManager) Start(sessionID string) error {
 	).Result()
 	if err != nil {
 		l.Error("Could not start session.", zap.Error(err))
-		return err
+		return nil, err
 	}
 	l.Info("Started session successfully.", zap.Duration("sessionStartDuration", time.Now().Sub(start)))
 
-	return nil
+	return &Session{
+		ID:          sessionID,
+		Manager:     s,
+		LastUpdated: timestamp,
+		data:        map[string]interface{}{},
+	}, nil
 }
 
 //Merge gets all the keys from old session into new session (no overwrites done).

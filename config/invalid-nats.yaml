@@ -1,7 +1,8 @@
 channel:
   services:
     redis:
-      host: localhost
-      port: 9876
+      host: 127.0.0.1
+      port: 7777
     nats:
       URL: nats://invalid-server:9876
+  workingText: WORKING

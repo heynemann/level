@@ -15,9 +15,13 @@ import (
 
 	"github.com/heynemann/level/extensions/pubsub"
 	"github.com/heynemann/level/extensions/redis"
+	"github.com/heynemann/level/extensions/sessionManager"
+	"github.com/iris-contrib/middleware/cors"
 	"github.com/iris-contrib/middleware/logger"
 	"github.com/iris-contrib/middleware/recovery"
 	"github.com/kataras/iris"
+	"github.com/kataras/iris/config"
+	"github.com/kataras/iris/websocket"
 	"github.com/spf13/viper"
 	"github.com/uber-go/zap"
 	redisCli "gopkg.in/redis.v4"
@@ -25,12 +29,13 @@ import (
 
 //Channel is responsible for communicating clients and backend servers
 type Channel struct {
-	Redis         *redisCli.Client
-	Config        *viper.Viper
-	Logger        zap.Logger
-	PubSub        *pubsub.PubSub
-	ServerOptions *Options
-	WebApp        *iris.Framework
+	Redis          *redisCli.Client
+	SessionManager sessionManager.SessionManager
+	Config         *viper.Viper
+	Logger         zap.Logger
+	PubSub         *pubsub.PubSub
+	ServerOptions  *Options
+	WebApp         *iris.Framework
 }
 
 //New opens a new channel connection
@@ -83,6 +88,7 @@ func (c *Channel) initializeChannel() error {
 	}
 
 	c.initializeWebApp()
+	c.initializeWebSocket()
 
 	l.Info(
 		"Channel initialized successfully.",
@@ -109,12 +115,7 @@ func (c *Channel) loadConfiguration() error {
 		zap.String("configFile", c.ServerOptions.ConfigFile),
 	)
 
-	absConfigFile, err := filepath.Abs(c.ServerOptions.ConfigFile)
-	if err != nil {
-		l.Error("Configuration file not found.", zap.Error(err))
-		return err
-	}
-
+	absConfigFile, _ := filepath.Abs(c.ServerOptions.ConfigFile)
 	l = l.With(
 		zap.String("absConfigFile", absConfigFile),
 	)
@@ -161,7 +162,7 @@ func (c *Channel) initializeRedis() error {
 }
 
 func (c *Channel) initializePubSub() error {
-	pubsub, err := pubsub.New(c.Config.GetString("channel.services.nats.URL"), c.Logger)
+	pubsub, err := pubsub.New(c.Config.GetString("channel.services.nats.URL"), c.Logger, c.SessionManager)
 	if err != nil {
 		return err
 	}
@@ -172,22 +173,27 @@ func (c *Channel) initializePubSub() error {
 func (c *Channel) initializeWebApp() {
 	debug := c.ServerOptions.Debug
 
-	c.WebApp = iris.New()
+	conf := config.Iris{
+		DisableBanner: true,
+	}
+
+	c.WebApp = iris.New(conf)
 
 	if debug {
 		c.WebApp.Use(logger.New(iris.Logger))
 	}
 	c.WebApp.Use(recovery.New(os.Stderr))
 
-	//a.Get("/healthcheck", HealthCheckHandler(app))
+	opt := cors.Options{AllowedOrigins: []string{"*"}}
+	c.WebApp.Use(cors.New(opt)) // crs
 
-	//opt := cors.Options{AllowedOrigins: []string{"*"}}
-	//a.Use(cors.New(opt)) // crs
+	c.WebApp.Get("/healthcheck", HealthCheckHandler(c))
+}
 
-	//SocketSupport(app)
-
-	//app.connectNats()
-	//app.connectRedis()
-	//app.startMatchmaker()
-
+func (c *Channel) initializeWebSocket() {
+	c.WebApp.Config.Websocket.Endpoint = "/"
+	ws := c.WebApp.Websocket // get the websocket server
+	ws.OnConnection(func(socket websocket.Connection) {
+		c.PubSub.RegisterPlayer(socket)
+	})
 }
