@@ -6,3 +6,4 @@ channel:
     nats:
       URL: nats://localhost:7778
   workingText: WORKING
+  actionTimeout: 5

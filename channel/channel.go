@@ -16,6 +16,7 @@ import (
 	"github.com/heynemann/level/extensions/pubsub"
 	"github.com/heynemann/level/extensions/redis"
 	"github.com/heynemann/level/extensions/sessionManager"
+	"github.com/heynemann/level/services/heartbeat"
 	"github.com/iris-contrib/middleware/cors"
 	"github.com/iris-contrib/middleware/logger"
 	"github.com/iris-contrib/middleware/recovery"
@@ -107,6 +108,8 @@ func (c *Channel) setDefaultConfigurationOptions() {
 	c.Config.SetDefault("channel.services.redis.db", 0)
 
 	c.Config.SetDefault("channel.services.nats.URL", "nats://localhost:7778")
+
+	c.Config.SetDefault("channel.actionTimeout", 5)
 }
 
 func (c *Channel) loadConfiguration() error {
@@ -162,7 +165,14 @@ func (c *Channel) initializeRedis() error {
 }
 
 func (c *Channel) initializePubSub() error {
-	pubsub, err := pubsub.New(c.Config.GetString("channel.services.nats.URL"), c.Logger, c.SessionManager)
+	hb := heartbeat.NewHeartbeatService()
+	pubsub, err := pubsub.New(
+		c.Config.GetString("channel.services.nats.URL"),
+		c.Logger,
+		c.SessionManager,
+		time.Duration(c.Config.GetInt("channel.actionTimeout"))*time.Second,
+		hb,
+	)
 	if err != nil {
 		return err
 	}

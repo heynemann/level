@@ -8,8 +8,9 @@
 package heartbeat
 
 import (
+	"time"
+
 	"github.com/heynemann/level/extensions/pubsub"
-	"github.com/heynemann/level/extensions/sessionManager"
 	"github.com/heynemann/level/messaging"
 )
 
@@ -24,14 +25,15 @@ func NewHeartbeatService() *Service {
 }
 
 //HandleAction handles a given action for an user
-func (p *Service) HandleAction(action *messaging.Action) {
-	//action.Payload["serverSent"] = time.Now().UnixNano() / 1000000
+func (p *Service) HandleAction(action *messaging.Action, reply func(*messaging.Event) error) error {
+	action.Payload["serverSent"] = time.Now().UnixNano() / 1000000
 
-	//event := messaging.NewEvent("pong", action.Payload)
-	//pubSub.DispatchEvent
+	event := messaging.NewEvent("pong", action.Payload)
+	reply(event)
+	return nil
 }
 
 //Initialize the service
-func (p *Service) Initialize(pubSub *pubsub.PubSub, sessionManager sessionManager.SessionManager) {
+func (p *Service) Initialize(pubSub *pubsub.PubSub) {
 	p.PubSub = pubSub
 }

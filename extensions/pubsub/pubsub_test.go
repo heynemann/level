@@ -17,6 +17,7 @@ import (
 	"github.com/heynemann/level/extensions/pubsub"
 	"github.com/heynemann/level/extensions/sessionManager"
 	"github.com/heynemann/level/messaging"
+	"github.com/heynemann/level/services/heartbeat"
 	. "github.com/heynemann/level/testing"
 	gnatsServer "github.com/nats-io/gnatsd/server"
 	"github.com/nats-io/nats"
@@ -24,6 +25,8 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/satori/go.uuid"
 )
+
+var defaultDuration = 5 * time.Second
 
 var _ = Describe("Pubsub", func() {
 
@@ -48,7 +51,7 @@ var _ = Describe("Pubsub", func() {
 			It("should allow servers to subscribe to actions and for them to be published", func() {
 				var receivedAction *messaging.Action
 				serverName := uuid.NewV4().String()
-				pubSub, err := pubsub.New(nats.DefaultURL, logger, manager)
+				pubSub, err := pubsub.New(nats.DefaultURL, logger, manager, defaultDuration)
 				Expect(err).NotTo(HaveOccurred())
 
 				pubSub.SubscribeActions(serverName, func(reply func(*messaging.Event), action *messaging.Action) {
@@ -57,8 +60,13 @@ var _ = Describe("Pubsub", func() {
 				})
 
 				expectedAction := messaging.NewAction("", "some-action", map[string]interface{}{"a": 1})
-				event, err := pubSub.RequestAction(serverName, expectedAction, 10*time.Millisecond)
+				var event *messaging.Event
+				err = pubSub.RequestAction(expectedAction, func(ev *messaging.Event) error {
+					event = ev
+					return nil
+				})
 				Expect(err).NotTo(HaveOccurred())
+				Expect(event).To(BeNil())
 				Expect(event).NotTo(BeNil())
 				Expect(event.Type).To(Equal("some-event"))
 				Expect(event.Payload).To(MapEqual(map[string]interface{}{"x": 2}))
@@ -74,7 +82,7 @@ var _ = Describe("Pubsub", func() {
 		Describe("Publish/Subscribe Messages", func() {
 			It("should allow servers to publish events to clients", func() {
 				var receivedEvent *messaging.Event
-				pubSub, err := pubsub.New(nats.DefaultURL, logger, manager)
+				pubSub, err := pubsub.New(nats.DefaultURL, logger, manager, defaultDuration)
 				Expect(err).NotTo(HaveOccurred())
 
 				pubSub.SubscribeEvents(func(event *messaging.Event) {
@@ -95,7 +103,7 @@ var _ = Describe("Pubsub", func() {
 
 	Describe("WebSocket connection", func() {
 		It("Should allow websocket connection", func() {
-			pubSub, err := pubsub.New(nats.DefaultURL, logger, manager)
+			pubSub, err := pubsub.New(nats.DefaultURL, logger, manager, defaultDuration)
 			Expect(err).NotTo(HaveOccurred())
 
 			port, server, responses := getServer(pubSub)
@@ -114,7 +122,8 @@ var _ = Describe("Pubsub", func() {
 		})
 
 		It("Can send heartbeat", func() {
-			pubSub, err := pubsub.New(nats.DefaultURL, logger, manager)
+			hb := heartbeat.NewHeartbeatService()
+			pubSub, err := pubsub.New(nats.DefaultURL, logger, manager, defaultDuration, hb)
 			Expect(err).NotTo(HaveOccurred())
 
 			port, server, responses := getServer(pubSub)
@@ -154,6 +163,12 @@ var _ = Describe("Pubsub", func() {
 			Expect(resp["key"]).To(Equal("channel.heartbeat"))
 
 			Expect(resp["payload"].(map[string]interface{})["clientSent"]).To(BeNumerically(">", 0))
+
+			ws.SetReadDeadline(time.Now().Add(100 * time.Millisecond))
+			var msg = make([]byte, 512)
+			n, err := ws.Read(msg)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(n).To(Equal(500))
 		})
 	})
 })
