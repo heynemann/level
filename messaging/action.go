@@ -11,15 +11,19 @@ import "time"
 
 //Action represents an action from the client to the server
 type Action struct {
+	SessionID string
 	Type      string
+	Key       string
 	Timestamp time.Time
 	Payload   map[string]interface{}
 }
 
 //NewAction build an action and returns it
-func NewAction(actionType string, payload map[string]interface{}) *Action {
+func NewAction(sessionID string, key string, payload map[string]interface{}) *Action {
 	return &Action{
-		Type:      actionType,
+		Type:      "action",
+		Key:       key,
+		SessionID: sessionID,
 		Payload:   payload,
 		Timestamp: time.Now(),
 	}

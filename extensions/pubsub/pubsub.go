@@ -26,6 +26,7 @@ type Player struct {
 	Session *sessionManager.Session
 }
 
+//NewPlayer builds a new player instance
 func NewPlayer(sessionID string, socket websocket.Connection, session *sessionManager.Session) *Player {
 	return &Player{
 		ID:      sessionID,
@@ -89,6 +90,11 @@ func (p *PubSub) SubscribeActions(serverName string, callback func(func(*messagi
 
 // RequestAction requests an action to a given server and returns its Event as response
 func (p *PubSub) RequestAction(serverName string, action *messaging.Action, timeout time.Duration) (*messaging.Event, error) {
+	// Does message belongs to channel.*?
+	// Dispatch to registered services
+
+	//Otherwise let's find a server that can handle it
+	//And get the response to send to the requesting player
 	var response messaging.Event
 	err := p.Conn.Request(GetServerQueue(serverName), action, &response, timeout)
 	if err != nil {

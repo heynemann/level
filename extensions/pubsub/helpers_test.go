@@ -13,8 +13,16 @@ package pubsub_test
 import (
 	"fmt"
 
+	"github.com/heynemann/level/extensions/pubsub"
+	"github.com/iris-contrib/middleware/cors"
+	"github.com/kataras/iris"
+	"github.com/kataras/iris/config"
+	irisSocket "github.com/kataras/iris/websocket"
+	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 )
+
+var serverPorts = 22000
 
 func mapEqual(m1, m2 map[string]interface{}) bool {
 	if len(m1) != len(m2) {
@@ -61,4 +69,35 @@ func (matcher *mapEqualMatcher) FailureMessage(actual interface{}) (message stri
 
 func (matcher *mapEqualMatcher) NegatedFailureMessage(actual interface{}) (message string) {
 	return fmt.Sprintf("Expected\n\t%#v\nnot to be the same as \n\t%#v", actual, matcher.expected)
+}
+
+func getServer(pubSub *pubsub.PubSub) (int, *iris.Framework, *[]string) {
+	messages := []string{}
+
+	conf := config.Iris{
+		DisableBanner: true,
+	}
+	s := iris.New(conf)
+
+	opt := cors.Options{AllowedOrigins: []string{"*"}}
+	s.Use(cors.New(opt)) // crs
+
+	s.Config.Websocket.Endpoint = "/"
+	ws := s.Websocket // get the websocket server
+	ws.OnConnection(func(socket irisSocket.Connection) {
+		err := pubSub.RegisterPlayer(socket)
+		Expect(err).NotTo(HaveOccurred())
+
+		socket.OnMessage(func(message []byte) {
+			messages = append(messages, string(message))
+		})
+	})
+
+	serverPorts++
+
+	go func() {
+		s.Listen(fmt.Sprintf("localhost:%d", serverPorts))
+	}()
+
+	return serverPorts, s, &messages
 }

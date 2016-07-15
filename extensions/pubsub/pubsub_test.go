@@ -8,6 +8,8 @@
 package pubsub_test
 
 import (
+	"encoding/json"
+	"fmt"
 	"time"
 
 	"golang.org/x/net/websocket"
@@ -16,39 +18,12 @@ import (
 	"github.com/heynemann/level/extensions/sessionManager"
 	"github.com/heynemann/level/messaging"
 	. "github.com/heynemann/level/testing"
-	"github.com/iris-contrib/middleware/cors"
-	"github.com/kataras/iris"
-	"github.com/kataras/iris/config"
-	irisSocket "github.com/kataras/iris/websocket"
 	gnatsServer "github.com/nats-io/gnatsd/server"
 	"github.com/nats-io/nats"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/satori/go.uuid"
 )
-
-func getServer(pubSub *pubsub.PubSub) *iris.Framework {
-	conf := config.Iris{
-		DisableBanner: true,
-	}
-	s := iris.New(conf)
-
-	opt := cors.Options{AllowedOrigins: []string{"*"}}
-	s.Use(cors.New(opt)) // crs
-
-	s.Config.Websocket.Endpoint = "/"
-	ws := s.Websocket // get the websocket server
-	ws.OnConnection(func(socket irisSocket.Connection) {
-		err := pubSub.RegisterPlayer(socket)
-		Expect(err).NotTo(HaveOccurred())
-	})
-
-	go func() {
-		s.Listen("localhost:9999")
-	}()
-
-	return s
-}
 
 var _ = Describe("Pubsub", func() {
 
@@ -81,7 +56,7 @@ var _ = Describe("Pubsub", func() {
 					reply(messaging.NewEvent("some-event", map[string]interface{}{"x": 2}))
 				})
 
-				expectedAction := messaging.NewAction("some-action", map[string]interface{}{"a": 1})
+				expectedAction := messaging.NewAction("", "some-action", map[string]interface{}{"a": 1})
 				event, err := pubSub.RequestAction(serverName, expectedAction, 10*time.Millisecond)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(event).NotTo(BeNil())
@@ -123,16 +98,62 @@ var _ = Describe("Pubsub", func() {
 			pubSub, err := pubsub.New(nats.DefaultURL, logger, manager)
 			Expect(err).NotTo(HaveOccurred())
 
-			server := getServer(pubSub)
+			port, server, responses := getServer(pubSub)
 			Expect(server).NotTo(BeNil())
 			time.Sleep(100 * time.Millisecond)
 
-			_, err = websocket.Dial("ws://localhost:9999/", "", "http://localhost:9999/")
+			wsURL := fmt.Sprintf("ws://localhost:%d", port)
+			httpURL := fmt.Sprintf("http://localhost:%d", port)
+			_, err = websocket.Dial(wsURL, "", httpURL)
 			Expect(err).NotTo(HaveOccurred())
 
 			time.Sleep(10 * time.Millisecond)
 
 			Expect(pubSub.ConnectedPlayers).To(HaveLen(1))
+			Expect(*responses).To(HaveLen(0))
+		})
+
+		It("Can send heartbeat", func() {
+			pubSub, err := pubsub.New(nats.DefaultURL, logger, manager)
+			Expect(err).NotTo(HaveOccurred())
+
+			port, server, responses := getServer(pubSub)
+			Expect(server).NotTo(BeNil())
+			time.Sleep(100 * time.Millisecond)
+
+			wsURL := fmt.Sprintf("ws://localhost:%d", port)
+			httpURL := fmt.Sprintf("http://localhost:%d", port)
+			ws, err := websocket.Dial(wsURL, "", httpURL)
+
+			Expect(err).NotTo(HaveOccurred())
+
+			time.Sleep(10 * time.Millisecond)
+
+			Expect(pubSub.ConnectedPlayers).To(HaveLen(1))
+
+			ping, _ := json.Marshal(map[string]interface{}{
+				"type": "action",
+				"key":  "channel.heartbeat",
+				"payload": map[string]interface{}{
+					"clientSent": time.Now().UnixNano() / 1000000,
+				},
+			})
+
+			_, err = ws.Write(ping)
+			Expect(err).NotTo(HaveOccurred())
+
+			time.Sleep(10 * time.Millisecond)
+
+			Expect(*responses).To(HaveLen(1))
+
+			var resp map[string]interface{}
+			err = json.Unmarshal([]byte((*responses)[0]), &resp)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(resp["type"]).To(Equal("action"))
+			Expect(resp["key"]).To(Equal("channel.heartbeat"))
+
+			Expect(resp["payload"].(map[string]interface{})["clientSent"]).To(BeNumerically(">", 0))
 		})
 	})
 })
