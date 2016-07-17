@@ -14,19 +14,12 @@ import (
 	"github.com/heynemann/level/extensions/pubsub"
 	"github.com/heynemann/level/messaging"
 	"github.com/heynemann/level/services/heartbeat"
-	. "github.com/heynemann/level/testing"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/satori/go.uuid"
 )
 
 var _ = Describe("Heartbeat Service", func() {
-	var logger *MockLogger
-
-	BeforeEach(func() {
-		logger = NewMockLogger()
-	})
-
 	It("Should handle heartbeat action", func() {
 		service := heartbeat.NewHeartbeatService()
 		ps := &pubsub.PubSub{}

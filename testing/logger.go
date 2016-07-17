@@ -22,30 +22,44 @@ func NewMockKV() *MockKeyValue {
 	}
 }
 
+//MockKeyValue struct
 type MockKeyValue struct {
 	Values map[string]interface{}
 }
 
+//AddBool to KV
 func (m *MockKeyValue) AddBool(key string, value bool) {
 	m.Values[key] = value
 }
+
+//AddFloat64 to KV
 func (m *MockKeyValue) AddFloat64(key string, value float64) {
 	m.Values[key] = value
 }
+
+//AddInt to KV
 func (m *MockKeyValue) AddInt(key string, value int) {
 	m.Values[key] = value
 }
+
+//AddInt64 to KV
 func (m *MockKeyValue) AddInt64(key string, value int64) {
 	m.Values[key] = value
 }
+
+//AddMarshaler to KV
 func (m *MockKeyValue) AddMarshaler(key string, marshaler zap.LogMarshaler) error {
 	m.Values[key] = marshaler
 	return nil
 }
+
+//AddObject to KV
 func (m *MockKeyValue) AddObject(key string, value interface{}) error {
 	m.Values[key] = value
 	return nil
 }
+
+//AddString to KV
 func (m *MockKeyValue) AddString(key, value string) {
 	m.Values[key] = value
 }

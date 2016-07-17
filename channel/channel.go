@@ -164,14 +164,21 @@ func (c *Channel) initializeRedis() error {
 	return nil
 }
 
-func (c *Channel) initializePubSub() error {
+func (c *Channel) getDefaultServices() []pubsub.Service {
 	hb := heartbeat.NewHeartbeatService()
+
+	return []pubsub.Service{
+		hb,
+	}
+}
+
+func (c *Channel) initializePubSub() error {
 	pubsub, err := pubsub.New(
 		c.Config.GetString("channel.services.nats.URL"),
 		c.Logger,
 		c.SessionManager,
 		time.Duration(c.Config.GetInt("channel.actionTimeout"))*time.Second,
-		hb,
+		c.getDefaultServices()...,
 	)
 	if err != nil {
 		return err
