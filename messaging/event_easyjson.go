@@ -8,7 +8,12 @@ import (
 	jwriter "github.com/mailru/easyjson/jwriter"
 )
 
-var _ = json.RawMessage{} // suppress unused package warning
+// suppress unused package warning
+var (
+	_ = json.RawMessage{}
+	_ = jlexer.Lexer{}
+	_ = jwriter.Writer{}
+)
 
 func easyjson_f642ad3e_decode_github_com_heynemann_level_messaging_Event(in *jlexer.Lexer, out *Event) {
 	if in.IsNull() {
@@ -25,32 +30,14 @@ func easyjson_f642ad3e_decode_github_com_heynemann_level_messaging_Event(in *jle
 			continue
 		}
 		switch key {
-		case "Type":
-			out.Type = string(in.String())
+		case "Key":
+			out.Key = string(in.String())
 		case "Timestamp":
 			if data := in.Raw(); in.Ok() {
 				in.AddError((out.Timestamp).UnmarshalJSON(data))
 			}
 		case "Payload":
-			if in.IsNull() {
-				in.Skip()
-			} else {
-				in.Delim('{')
-				if !in.IsDelim('}') {
-					out.Payload = make(map[string]interface{})
-				} else {
-					out.Payload = nil
-				}
-				for !in.IsDelim('}') {
-					key := string(in.String())
-					in.WantColon()
-					var v1 interface{}
-					v1 = in.Interface()
-					(out.Payload)[key] = v1
-					in.WantComma()
-				}
-				in.Delim('}')
-			}
+			out.Payload = in.Interface()
 		default:
 			in.SkipRecursive()
 		}
@@ -66,8 +53,8 @@ func easyjson_f642ad3e_encode_github_com_heynemann_level_messaging_Event(out *jw
 		out.RawByte(',')
 	}
 	first = false
-	out.RawString("\"Type\":")
-	out.String(string(in.Type))
+	out.RawString("\"Key\":")
+	out.String(string(in.Key))
 	if !first {
 		out.RawByte(',')
 	}
@@ -79,22 +66,7 @@ func easyjson_f642ad3e_encode_github_com_heynemann_level_messaging_Event(out *jw
 	}
 	first = false
 	out.RawString("\"Payload\":")
-	if in.Payload == nil {
-		out.RawString(`null`)
-	} else {
-		out.RawByte('{')
-		v2_first := true
-		for v2_name, v2_value := range in.Payload {
-			if !v2_first {
-				out.RawByte(',')
-			}
-			v2_first = false
-			out.String(string(v2_name))
-			out.RawByte(':')
-			out.Raw(json.Marshal(v2_value))
-		}
-		out.RawByte('}')
-	}
+	out.Raw(json.Marshal(in.Payload))
 	out.RawByte('}')
 }
 func (v Event) MarshalJSON() ([]byte, error) {

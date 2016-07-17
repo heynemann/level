@@ -23,7 +23,7 @@ import (
 //Service describes a service
 type Service interface {
 	Initialize(*PubSub)
-	HandleAction(*messaging.Action, func(*messaging.Event) error) error
+	HandleAction(*messaging.Action, func(*messaging.Event) error, int64) error
 }
 
 //Player represents a player connection
@@ -94,24 +94,23 @@ func GetEventQueue() string {
 }
 
 // SubscribeActions subscribes a specific server to all actions arriving in its queue
-func (p *PubSub) SubscribeActions(serverName string, callback func(func(*messaging.Event), *messaging.Action)) error {
-	p.Conn.Subscribe(GetServerQueue(serverName), func(subj, reply string, action *messaging.Action) {
-		replyFunc := func(e *messaging.Event) {
-			p.Conn.Publish(reply, e)
-		}
-		callback(replyFunc, action)
-	})
-	return nil
-}
+//func (p *PubSub) SubscribeActions(serverName string, callback func(func(*messaging.Event), *messaging.Action)) error {
+//p.Conn.Subscribe(GetServerQueue(serverName), func(subj, reply string, action *messaging.Action) {
+//replyFunc := func(e *messaging.Event) {
+//p.Conn.Publish(reply, e)
+//}
+//callback(replyFunc, action)
+//})
+//return nil
+//}
 
 // RequestAction requests an action to a given server and returns its Event as response
-func (p *PubSub) RequestAction(action *messaging.Action, reply func(event *messaging.Event) error) error {
+func (p *PubSub) RequestAction(action *messaging.Action, reply func(event *messaging.Event) error, serverReceived int64) error {
 	// Does message belongs to channel.*?
 	// Dispatch to registered services
-
 	if strings.HasPrefix(action.Key, "channel.") {
 		for _, service := range p.LocalServices {
-			err := service.HandleAction(action, reply)
+			err := service.HandleAction(action, reply, serverReceived)
 			if err != nil {
 				return err
 			}
@@ -133,16 +132,16 @@ func (p *PubSub) RequestAction(action *messaging.Action, reply func(event *messa
 }
 
 // SubscribeEvents subscribes to all events arriving from the servers
-func (p *PubSub) SubscribeEvents(callback func(*messaging.Event)) error {
-	p.Conn.Subscribe(GetEventQueue(), callback)
-	return nil
-}
+//func (p *PubSub) SubscribeEvents(callback func(*messaging.Event)) error {
+//p.Conn.Subscribe(GetEventQueue(), callback)
+//return nil
+//}
 
 // PublishEvent publishes an event to all the channels
-func (p *PubSub) PublishEvent(event *messaging.Event) error {
-	p.Conn.Publish(GetEventQueue(), event)
-	return nil
-}
+//func (p *PubSub) PublishEvent(event *messaging.Event) error {
+//p.Conn.Publish(GetEventQueue(), event)
+//return nil
+//}
 
 //RegisterPlayer registers a player to receive/send events
 func (p *PubSub) RegisterPlayer(websocket websocket.Connection) error {
@@ -180,13 +179,18 @@ func (p *PubSub) getReply(websocket websocket.Connection) func(*messaging.Event)
 //BindEvents listens to websocket events.
 func (p *PubSub) BindEvents(websocket websocket.Connection, player *Player) {
 	websocket.OnMessage(func(message []byte) {
+		received := time.Now().UnixNano()
+
 		var action messaging.Action
 		err := action.UnmarshalJSON(message)
 		if err != nil {
 			return
 		}
 
-		p.RequestAction(&action, p.getReply(websocket))
+		err = p.RequestAction(&action, p.getReply(websocket), received)
+		if err != nil {
+			fmt.Println("GOT AN ERROR REQUESTING ACTION: ", err.Error())
+		}
 	})
 	// to all except this connection ->
 	//c.To(websocket.Broadcast).Emit("chat", "Message from: "+c.ID()+"-> "+message)

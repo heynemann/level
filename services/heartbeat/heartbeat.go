@@ -8,6 +8,7 @@
 package heartbeat
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/heynemann/level/extensions/pubsub"
@@ -25,11 +26,23 @@ func NewHeartbeatService() *Service {
 }
 
 //HandleAction handles a given action for an user
-func (p *Service) HandleAction(action *messaging.Action, reply func(*messaging.Event) error) error {
-	action.Payload["serverSent"] = time.Now().UnixNano() / 1000000
+func (p *Service) HandleAction(action *messaging.Action, reply func(*messaging.Event) error, serverReceived int64) error {
+	switch action.Payload.(type) {
+	case map[string]interface{}:
+		event := messaging.NewEvent("channel.heartbeat", map[string]interface{}{
+			"clientSent":     action.Payload.(map[string]interface{})["clientSent"],
+			"serverReceived": serverReceived / 1000000,
+			"serverSent":     time.Now().UnixNano() / 1000000,
+		})
 
-	event := messaging.NewEvent("pong", action.Payload)
-	reply(event)
+		err := reply(event)
+		if err != nil {
+			return err
+		}
+	default:
+		return fmt.Errorf("Could not understand heartbeat payload: %v", action.Payload)
+	}
+
 	return nil
 }
 

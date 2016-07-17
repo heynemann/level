@@ -11,15 +11,15 @@ import "time"
 
 //Event represents an event from the server to the clients
 type Event struct {
-	Type      string
+	Key       string
 	Timestamp time.Time
-	Payload   map[string]interface{}
+	Payload   interface{}
 }
 
 //NewEvent builds an event and returns it
-func NewEvent(eventType string, payload map[string]interface{}) *Event {
+func NewEvent(key string, payload interface{}) *Event {
 	return &Event{
-		Type:      eventType,
+		Key:       key,
 		Payload:   payload,
 		Timestamp: time.Now(),
 	}

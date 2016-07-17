@@ -15,11 +15,11 @@ type Action struct {
 	Type      string
 	Key       string
 	Timestamp time.Time
-	Payload   map[string]interface{}
+	Payload   interface{}
 }
 
 //NewAction build an action and returns it
-func NewAction(sessionID string, key string, payload map[string]interface{}) *Action {
+func NewAction(sessionID string, key string, payload interface{}) *Action {
 	return &Action{
 		Type:      "action",
 		Key:       key,
