@@ -42,7 +42,7 @@ var _ = Describe("Heartbeat Service", func() {
 			return nil
 		}
 
-		service.HandleAction(action, reply, time.Now().UnixNano())
+		service.HandleAction("", action, reply, time.Now().UnixNano())
 		Expect(called).To(BeTrue())
 	})
 
@@ -63,7 +63,7 @@ var _ = Describe("Heartbeat Service", func() {
 			return nil
 		}
 
-		err := service.HandleAction(action, reply, time.Now().UnixNano())
+		err := service.HandleAction("", action, reply, time.Now().UnixNano())
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(Equal("Could not understand heartbeat payload: invalid-payload"))
 		Expect(called).To(BeFalse())
@@ -86,7 +86,7 @@ var _ = Describe("Heartbeat Service", func() {
 			return fmt.Errorf("failed to reply")
 		}
 
-		err := service.HandleAction(action, reply, time.Now().UnixNano())
+		err := service.HandleAction("", action, reply, time.Now().UnixNano())
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(Equal("failed to reply"))
 	})

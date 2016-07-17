@@ -23,22 +23,23 @@ import (
 //Service describes a service
 type Service interface {
 	Initialize(*PubSub)
-	HandleAction(*messaging.Action, func(*messaging.Event) error, int64) error
+	HandleAction(string, *messaging.Action, func(*messaging.Event) error, int64) error
+	ShouldHandleAction(*messaging.Action) bool
 }
 
 //Player represents a player connection
 type Player struct {
-	ID      string
-	Socket  websocket.Connection
-	Session *sessionManager.Session
+	SessionID string
+	Socket    websocket.Connection
+	Session   *sessionManager.Session
 }
 
 //NewPlayer builds a new player instance
 func NewPlayer(sessionID string, socket websocket.Connection, session *sessionManager.Session) *Player {
 	return &Player{
-		ID:      sessionID,
-		Socket:  socket,
-		Session: session,
+		SessionID: sessionID,
+		Socket:    socket,
+		Session:   session,
 	}
 }
 
@@ -105,12 +106,15 @@ func GetEventQueue() string {
 //}
 
 // RequestAction requests an action to a given server and returns its Event as response
-func (p *PubSub) RequestAction(action *messaging.Action, reply func(event *messaging.Event) error, serverReceived int64) error {
+func (p *PubSub) RequestAction(player *Player, action *messaging.Action, reply func(event *messaging.Event) error, serverReceived int64) error {
 	// Does message belongs to channel.*?
 	// Dispatch to registered services
 	if strings.HasPrefix(action.Key, "channel.") {
 		for _, service := range p.LocalServices {
-			err := service.HandleAction(action, reply, serverReceived)
+			if !service.ShouldHandleAction(action) {
+				continue
+			}
+			err := service.HandleAction(player.SessionID, action, reply, serverReceived)
 			if err != nil {
 				return err
 			}
@@ -160,7 +164,7 @@ func (p *PubSub) RegisterPlayer(websocket websocket.Connection) error {
 
 //UnregisterPlayer removes player from connected players upon disconnection
 func (p *PubSub) UnregisterPlayer(player *Player) error {
-	delete(p.ConnectedPlayers, player.ID)
+	delete(p.ConnectedPlayers, player.SessionID)
 	return nil
 }
 
@@ -187,7 +191,7 @@ func (p *PubSub) BindEvents(websocket websocket.Connection, player *Player) {
 			return
 		}
 
-		err = p.RequestAction(&action, p.getReply(websocket), received)
+		err = p.RequestAction(player, &action, p.getReply(websocket), received)
 		if err != nil {
 			fmt.Println("GOT AN ERROR REQUESTING ACTION: ", err.Error())
 		}

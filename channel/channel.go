@@ -17,6 +17,7 @@ import (
 	"github.com/heynemann/level/extensions/redis"
 	"github.com/heynemann/level/extensions/sessionManager"
 	"github.com/heynemann/level/services/heartbeat"
+	"github.com/heynemann/level/services/session"
 	"github.com/iris-contrib/middleware/cors"
 	"github.com/iris-contrib/middleware/logger"
 	"github.com/iris-contrib/middleware/recovery"
@@ -166,9 +167,11 @@ func (c *Channel) initializeRedis() error {
 
 func (c *Channel) getDefaultServices() []pubsub.Service {
 	hb := heartbeat.NewHeartbeatService()
+	sessions := session.NewSessionService()
 
 	return []pubsub.Service{
 		hb,
+		sessions,
 	}
 }
 

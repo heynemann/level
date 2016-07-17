@@ -25,8 +25,13 @@ func NewHeartbeatService() *Service {
 	return &Service{}
 }
 
+//ShouldHandleAction identifies whether this service should handle the incoming action
+func (p *Service) ShouldHandleAction(action *messaging.Action) bool {
+	return action.Key == "channel.heartbeat"
+}
+
 //HandleAction handles a given action for an user
-func (p *Service) HandleAction(action *messaging.Action, reply func(*messaging.Event) error, serverReceived int64) error {
+func (p *Service) HandleAction(sessionID string, action *messaging.Action, reply func(*messaging.Event) error, serverReceived int64) error {
 	switch action.Payload.(type) {
 	case map[string]interface{}:
 		event := messaging.NewEvent("channel.heartbeat", map[string]interface{}{
