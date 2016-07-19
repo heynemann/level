@@ -8,6 +8,7 @@
 package channel
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,15 +16,16 @@ import (
 
 	"github.com/heynemann/level/extensions/pubsub"
 	"github.com/heynemann/level/extensions/redis"
+	"github.com/heynemann/level/extensions/serviceRegistry"
 	"github.com/heynemann/level/extensions/sessionManager"
 	"github.com/heynemann/level/services/heartbeat"
-	"github.com/heynemann/level/services/session"
 	"github.com/iris-contrib/middleware/cors"
 	"github.com/iris-contrib/middleware/logger"
 	"github.com/iris-contrib/middleware/recovery"
 	"github.com/kataras/iris"
 	"github.com/kataras/iris/config"
 	"github.com/kataras/iris/websocket"
+	"github.com/satori/go.uuid"
 	"github.com/spf13/viper"
 	"github.com/uber-go/zap"
 	redisCli "gopkg.in/redis.v4"
@@ -31,13 +33,14 @@ import (
 
 //Channel is responsible for communicating clients and backend servers
 type Channel struct {
-	Redis          *redisCli.Client
-	SessionManager sessionManager.SessionManager
-	Config         *viper.Viper
-	Logger         zap.Logger
-	PubSub         *pubsub.PubSub
-	ServerOptions  *Options
-	WebApp         *iris.Framework
+	Redis           *redisCli.Client
+	SessionManager  sessionManager.SessionManager
+	Config          *viper.Viper
+	Logger          zap.Logger
+	ServiceRegistry *registry.ServiceRegistry
+	PubSub          *pubsub.PubSub
+	ServerOptions   *Options
+	WebApp          *iris.Framework
 }
 
 //New opens a new channel connection
@@ -85,6 +88,16 @@ func (c *Channel) initializeChannel() error {
 	}
 
 	err = c.initializePubSub()
+	if err != nil {
+		return err
+	}
+
+	err = c.initializeServiceRegistry()
+	if err != nil {
+		return err
+	}
+
+	err = c.initializeDefaultServices()
 	if err != nil {
 		return err
 	}
@@ -165,28 +178,43 @@ func (c *Channel) initializeRedis() error {
 	return nil
 }
 
-func (c *Channel) getDefaultServices() []pubsub.Service {
-	hb := heartbeat.NewHeartbeatService()
-	sessions := session.NewSessionService()
-
-	return []pubsub.Service{
-		hb,
-		sessions,
-	}
-}
-
 func (c *Channel) initializePubSub() error {
 	pubsub, err := pubsub.New(
 		c.Config.GetString("channel.services.nats.URL"),
 		c.Logger,
 		c.SessionManager,
 		time.Duration(c.Config.GetInt("channel.actionTimeout"))*time.Second,
-		c.getDefaultServices()...,
 	)
 	if err != nil {
 		return err
 	}
 	c.PubSub = pubsub
+	return nil
+}
+
+func (c *Channel) initializeServiceRegistry() error {
+	sr, err := registry.NewServiceRegistry(
+		c.Config.GetString("channel.services.nats.URL"),
+		c.Logger,
+	)
+	if err != nil {
+		return err
+	}
+	c.ServiceRegistry = sr
+	return nil
+}
+
+func (c *Channel) initializeDefaultServices() error {
+	hbID := fmt.Sprintf("services:heartbeat:%s", uuid.NewV4().String())
+	_, err := heartbeat.NewHeartbeatService(hbID, c.ServiceRegistry)
+	if err != nil {
+		return err
+	}
+	//sessions, err := session.NewSessionService()
+	//if err != nil {
+	//return err
+	//}
+
 	return nil
 }
 

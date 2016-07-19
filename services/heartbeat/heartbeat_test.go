@@ -8,46 +8,60 @@
 package heartbeat_test
 
 import (
-	"fmt"
 	"time"
 
-	"github.com/heynemann/level/extensions/pubsub"
+	"github.com/heynemann/level/extensions/serviceRegistry"
 	"github.com/heynemann/level/messaging"
 	"github.com/heynemann/level/services/heartbeat"
+	. "github.com/heynemann/level/testing"
+	gnatsServer "github.com/nats-io/gnatsd/server"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/satori/go.uuid"
 )
 
 var _ = Describe("Heartbeat Service", func() {
+	var logger *MockLogger
+	var NATSServer *gnatsServer.Server
+	var reg *registry.ServiceRegistry
+
+	BeforeEach(func() {
+		var err error
+
+		logger = NewMockLogger()
+		NATSServer = RunServerOnPort(5555)
+		reg, err = registry.NewServiceRegistry("nats://127.0.0.1:5555", logger)
+		Expect(err).NotTo(HaveOccurred())
+	})
+	AfterEach(func() {
+		reg.Terminate()
+		NATSServer.Shutdown()
+		NATSServer = nil
+	})
+
 	It("Should handle heartbeat action", func() {
-		service := heartbeat.NewHeartbeatService()
-		ps := &pubsub.PubSub{}
-		service.Initialize(ps)
-		Expect(service.PubSub).To(Equal(ps))
+		service, err := heartbeat.NewHeartbeatService(uuid.NewV4().String(), reg)
+		Expect(err).NotTo(HaveOccurred())
 
 		action := messaging.NewAction(
 			uuid.NewV4().String(),
 			"channel.heartbeat",
 			map[string]interface{}{
-				"clientStart": time.Now().UnixNano(),
+				"clientSent": time.Now().UnixNano(),
 			},
 		)
 
 		Expect(action).NotTo(BeNil())
 
-		called := false
-		reply := func(event *messaging.Event) error {
-			called = true
-			return nil
-		}
-
-		service.HandleAction("", action, reply, time.Now().UnixNano())
-		Expect(called).To(BeTrue())
+		event, err := service.HandleAction("", action)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(event).NotTo(BeNil())
+		Expect(event.Payload.(map[string]interface{})["serverSent"]).To(BeNumerically(">", 0))
 	})
 
 	It("Should fail in case of wrong message", func() {
-		service := heartbeat.NewHeartbeatService()
+		service, err := heartbeat.NewHeartbeatService(uuid.NewV4().String(), reg)
+		Expect(err).NotTo(HaveOccurred())
 
 		action := messaging.NewAction(
 			uuid.NewV4().String(),
@@ -57,38 +71,8 @@ var _ = Describe("Heartbeat Service", func() {
 
 		Expect(action).NotTo(BeNil())
 
-		called := false
-		reply := func(event *messaging.Event) error {
-			called = true
-			return nil
-		}
-
-		err := service.HandleAction("", action, reply, time.Now().UnixNano())
+		_, err = service.HandleAction("subject", action)
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(Equal("Could not understand heartbeat payload: invalid-payload"))
-		Expect(called).To(BeFalse())
 	})
-
-	It("Should fail in case of error in reply", func() {
-		service := heartbeat.NewHeartbeatService()
-
-		action := messaging.NewAction(
-			uuid.NewV4().String(),
-			"channel.heartbeat",
-			map[string]interface{}{
-				"clientStart": time.Now().UnixNano(),
-			},
-		)
-
-		Expect(action).NotTo(BeNil())
-
-		reply := func(event *messaging.Event) error {
-			return fmt.Errorf("failed to reply")
-		}
-
-		err := service.HandleAction("", action, reply, time.Now().UnixNano())
-		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(Equal("failed to reply"))
-	})
-
 })

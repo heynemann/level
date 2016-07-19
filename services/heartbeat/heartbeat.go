@@ -12,46 +12,64 @@ import (
 	"time"
 
 	"github.com/heynemann/level/extensions/pubsub"
+	"github.com/heynemann/level/extensions/serviceRegistry"
 	"github.com/heynemann/level/messaging"
 )
 
 //Service represents the heartbeat service
 type Service struct {
-	PubSub *pubsub.PubSub
+	ID       string
+	Registry *registry.ServiceRegistry
+	PubSub   *pubsub.PubSub
 }
 
 //NewHeartbeatService creates a new instance of a heartbeat service
-func NewHeartbeatService() *Service {
-	return &Service{}
-}
-
-//ShouldHandleAction identifies whether this service should handle the incoming action
-func (p *Service) ShouldHandleAction(action *messaging.Action) bool {
-	return action.Key == "channel.heartbeat"
-}
-
-//HandleAction handles a given action for an user
-func (p *Service) HandleAction(sessionID string, action *messaging.Action, reply func(*messaging.Event) error, serverReceived int64) error {
-	switch action.Payload.(type) {
-	case map[string]interface{}:
-		event := messaging.NewEvent("channel.heartbeat", map[string]interface{}{
-			"clientSent":     action.Payload.(map[string]interface{})["clientSent"],
-			"serverReceived": serverReceived / 1000000,
-			"serverSent":     time.Now().UnixNano() / 1000000,
-		})
-
-		err := reply(event)
-		if err != nil {
-			return err
-		}
-	default:
-		return fmt.Errorf("Could not understand heartbeat payload: %v", action.Payload)
+func NewHeartbeatService(id string, serviceRegistry *registry.ServiceRegistry) (*Service, error) {
+	s := &Service{
+		ID:       id,
+		Registry: serviceRegistry,
 	}
 
+	err := s.Initialize()
+	if err != nil {
+		return nil, err
+	}
+
+	return s, nil
+}
+
+//GetServiceID returns the service ID for each instance of this service
+func (s *Service) GetServiceID() string {
+	return s.ID
+}
+
+//Initialize the service - register it with the service registry
+func (s *Service) Initialize() error {
+	s.Registry.Register(s)
 	return nil
 }
 
-//Initialize the service
-func (p *Service) Initialize(pubSub *pubsub.PubSub) {
-	p.PubSub = pubSub
+//GetServiceActions returns all the actions the service can handle
+func (s *Service) GetServiceActions() []*registry.Action {
+	return []*registry.Action{
+		&registry.Action{
+			Key:    "channel.heartbeat",
+			Sticky: false,
+		},
+	}
+}
+
+//HandleAction handles a given action for an user
+func (s *Service) HandleAction(subject string, action *messaging.Action) (*messaging.Event, error) {
+	switch action.Payload.(type) {
+	case map[string]interface{}:
+		event := messaging.NewEvent("channel.heartbeat", map[string]interface{}{
+			"clientSent": action.Payload.(map[string]interface{})["clientSent"],
+			"serverSent": time.Now().UnixNano() / 1000000,
+		})
+
+		return event, nil
+	default:
+		return nil, fmt.Errorf("Could not understand heartbeat payload: %v", action.Payload)
+	}
 }

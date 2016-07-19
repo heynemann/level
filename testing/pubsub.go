@@ -11,6 +11,8 @@
 package testing
 
 import (
+	"time"
+
 	gnatsdServer "github.com/nats-io/gnatsd/server"
 	gnatsdTest "github.com/nats-io/gnatsd/test"
 	"github.com/nats-io/nats"
@@ -27,9 +29,16 @@ func RunDefaultServer() *gnatsdServer.Server {
 
 // RunServerOnPort will run a server on the given port.
 func RunServerOnPort(port int) *gnatsdServer.Server {
-	opts := gnatsdTest.DefaultTestOptions
-	opts.Port = port
-	return RunServerWithOptions(opts)
+	opts := gnatsdServer.Options{
+		Host:           "0.0.0.0",
+		Port:           port,
+		NoLog:          false,
+		NoSigs:         true,
+		MaxControlLine: 256,
+	}
+	s := RunServerWithOptions(opts)
+	time.Sleep(100 * time.Millisecond)
+	return s
 }
 
 // RunServerWithOptions will run a server with the given options.

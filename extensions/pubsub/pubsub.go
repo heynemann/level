@@ -9,7 +9,6 @@ package pubsub
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/heynemann/level/extensions/sessionManager"
@@ -19,13 +18,6 @@ import (
 	"github.com/satori/go.uuid"
 	"github.com/uber-go/zap"
 )
-
-//Service describes a service
-type Service interface {
-	Initialize(*PubSub)
-	HandleAction(string, *messaging.Action, func(*messaging.Event) error, int64) error
-	ShouldHandleAction(*messaging.Action) bool
-}
 
 //Player represents a player connection
 type Player struct {
@@ -50,12 +42,11 @@ type PubSub struct {
 	SessionManager   sessionManager.SessionManager
 	Logger           zap.Logger
 	ConnectedPlayers map[string]*Player
-	LocalServices    []Service
 	ActionTimeout    time.Duration
 }
 
 //New returns a new pubsub connection
-func New(natsURL string, logger zap.Logger, manager sessionManager.SessionManager, actionTimeout time.Duration, services ...Service) (*PubSub, error) {
+func New(natsURL string, logger zap.Logger, manager sessionManager.SessionManager, actionTimeout time.Duration) (*PubSub, error) {
 	conn, err := nats.Connect(natsURL)
 	if err != nil {
 		return nil, err
@@ -73,12 +64,6 @@ func New(natsURL string, logger zap.Logger, manager sessionManager.SessionManage
 		ConnectedPlayers: map[string]*Player{},
 		SessionManager:   manager,
 		ActionTimeout:    actionTimeout,
-	}
-
-	pubSub.LocalServices = services
-
-	for _, service := range services {
-		service.Initialize(pubSub)
 	}
 
 	return pubSub, nil
@@ -107,45 +92,19 @@ func GetEventQueue() string {
 
 // RequestAction requests an action to a given server and returns its Event as response
 func (p *PubSub) RequestAction(player *Player, action *messaging.Action, reply func(event *messaging.Event) error, serverReceived int64) error {
-	// Does message belongs to channel.*?
-	// Dispatch to registered services
-	if strings.HasPrefix(action.Key, "channel.") {
-		for _, service := range p.LocalServices {
-			if !service.ShouldHandleAction(action) {
-				continue
-			}
-			err := service.HandleAction(player.SessionID, action, reply, serverReceived)
-			if err != nil {
-				return err
-			}
-		}
-
-		return nil
+	var response messaging.Event
+	err := p.Conn.Request(action.Key, action, &response, 5*time.Second)
+	if err != nil {
+		return err
 	}
 
-	//Otherwise let's find a server that can handle it
-	//And get the response to send to the requesting player
-	//var response messaging.Event
-	//err := p.Conn.Request(GetServerQueue(serverName), action, &response, timeout)
-	//if err != nil {
-	//return nil, err
-	//}
+	err = reply(&response)
+	if err != nil {
+		return err
+	}
 
-	//return &response, nil
 	return nil
 }
-
-// SubscribeEvents subscribes to all events arriving from the servers
-//func (p *PubSub) SubscribeEvents(callback func(*messaging.Event)) error {
-//p.Conn.Subscribe(GetEventQueue(), callback)
-//return nil
-//}
-
-// PublishEvent publishes an event to all the channels
-//func (p *PubSub) PublishEvent(event *messaging.Event) error {
-//p.Conn.Publish(GetEventQueue(), event)
-//return nil
-//}
 
 //RegisterPlayer registers a player to receive/send events
 func (p *PubSub) RegisterPlayer(websocket websocket.Connection) error {
