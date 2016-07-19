@@ -37,7 +37,7 @@ func RunServerOnPort(port int) *gnatsdServer.Server {
 		MaxControlLine: 256,
 	}
 	s := RunServerWithOptions(opts)
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(10 * time.Millisecond)
 	return s
 }
 

@@ -8,7 +8,10 @@
 package channel_test
 
 import (
+	"time"
+
 	"github.com/heynemann/level/channel"
+	"github.com/heynemann/level/messaging"
 	. "github.com/heynemann/level/testing"
 	gnatsdServer "github.com/nats-io/gnatsd/server"
 	. "github.com/onsi/ginkgo"
@@ -157,7 +160,26 @@ var _ = Describe("Channel", func() {
 				Expect(err.Error()).To(ContainSubstring("nats: no servers available for connection"))
 				Expect(channel).To(BeNil())
 			})
+		})
 
+		Describe("Channel Services", func() {
+			It("should send and receive heartbeat", func() {
+				channel, err := RunChannelOnPort(7575, logger)
+				Expect(err).NotTo(HaveOccurred())
+
+				conn, err := NewChannelTestConnection(channel)
+				Expect(err).NotTo(HaveOccurred())
+
+				err = conn.Send(messaging.NewAction("", "channel.heartbeat", map[string]interface{}{
+					"clientSent": time.Now().UnixNano(),
+				}))
+				Expect(err).NotTo(HaveOccurred())
+
+				ev, err := conn.Receive()
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(ev.Key).To(Equal("channel.heartbeat"))
+			})
 		})
 	})
 })

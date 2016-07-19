@@ -20,3 +20,6 @@ import:
 - package: github.com/kataras/iris
 - package: github.com/Joker/jade
 - package: github.com/iris-contrib/middleware
+- package: github.com/spf13/cobra
+- package: github.com/fatih/color
+- package: github.com/valyala/fasthttp

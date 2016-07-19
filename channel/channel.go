@@ -24,7 +24,6 @@ import (
 	"github.com/iris-contrib/middleware/recovery"
 	"github.com/kataras/iris"
 	"github.com/kataras/iris/config"
-	"github.com/kataras/iris/websocket"
 	"github.com/satori/go.uuid"
 	"github.com/spf13/viper"
 	"github.com/uber-go/zap"
@@ -87,6 +86,11 @@ func (c *Channel) initializeChannel() error {
 		return err
 	}
 
+	err = c.initializeSessionManager()
+	if err != nil {
+		return err
+	}
+
 	err = c.initializePubSub()
 	if err != nil {
 		return err
@@ -124,6 +128,7 @@ func (c *Channel) setDefaultConfigurationOptions() {
 	c.Config.SetDefault("channel.services.nats.URL", "nats://localhost:7778")
 
 	c.Config.SetDefault("channel.actionTimeout", 5)
+	c.Config.SetDefault("channel.services.sessionManager.expiration", 180)
 }
 
 func (c *Channel) loadConfiguration() error {
@@ -175,6 +180,23 @@ func (c *Channel) initializeRedis() error {
 	}
 	c.Redis = cli
 
+	return nil
+}
+
+func (c *Channel) initializeSessionManager() error {
+	sm, err := sessionManager.GetRedisSessionManager(
+		c.Config.GetString("channel.services.redis.host"),
+		c.Config.GetInt("channel.services.redis.port"),
+		c.Config.GetString("channel.services.redis.password"),
+		c.Config.GetInt("channel.services.redis.db"),
+		c.Config.GetInt("channel.services.sessionManager.expiration"),
+		c.Logger,
+	)
+	if err != nil {
+		return err
+	}
+
+	c.SessionManager = sm
 	return nil
 }
 
@@ -239,9 +261,17 @@ func (c *Channel) initializeWebApp() {
 }
 
 func (c *Channel) initializeWebSocket() {
+	c.Logger.Debug("Initializing websocket...")
 	c.WebApp.Config.Websocket.Endpoint = "/"
 	ws := c.WebApp.Websocket // get the websocket server
-	ws.OnConnection(func(socket websocket.Connection) {
+	ws.OnConnection(func(socket iris.WebsocketConnection) {
 		c.PubSub.RegisterPlayer(socket)
 	})
+	c.Logger.Info("Websocket initialized.")
+}
+
+//Start the channel
+func (c *Channel) Start() {
+	server := fmt.Sprintf("%s:%d", c.ServerOptions.Host, c.ServerOptions.Port)
+	c.WebApp.Listen(server)
 }

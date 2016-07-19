@@ -2,8 +2,8 @@ channel:
   services:
     redis:
       host: 127.0.0.1
-      port: 7777
+      port: 8787
     nats:
-      URL: nats://localhost:7778
+      URL: nats://localhost:8788
   workingText: WORKING
   actionTimeout: 5

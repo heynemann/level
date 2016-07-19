@@ -13,7 +13,7 @@ import (
 
 	"github.com/heynemann/level/extensions/sessionManager"
 	"github.com/heynemann/level/messaging"
-	"github.com/kataras/iris/websocket"
+	"github.com/kataras/iris"
 	"github.com/nats-io/nats"
 	"github.com/satori/go.uuid"
 	"github.com/uber-go/zap"
@@ -22,12 +22,12 @@ import (
 //Player represents a player connection
 type Player struct {
 	SessionID string
-	Socket    websocket.Connection
+	Socket    iris.WebsocketConnection
 	Session   *sessionManager.Session
 }
 
 //NewPlayer builds a new player instance
-func NewPlayer(sessionID string, socket websocket.Connection, session *sessionManager.Session) *Player {
+func NewPlayer(sessionID string, socket iris.WebsocketConnection, session *sessionManager.Session) *Player {
 	return &Player{
 		SessionID: sessionID,
 		Socket:    socket,
@@ -107,7 +107,7 @@ func (p *PubSub) RequestAction(player *Player, action *messaging.Action, reply f
 }
 
 //RegisterPlayer registers a player to receive/send events
-func (p *PubSub) RegisterPlayer(websocket websocket.Connection) error {
+func (p *PubSub) RegisterPlayer(websocket iris.WebsocketConnection) error {
 	sessionID := uuid.NewV4().String()
 	session, err := p.SessionManager.Start(sessionID)
 	if err != nil {
@@ -127,7 +127,7 @@ func (p *PubSub) UnregisterPlayer(player *Player) error {
 	return nil
 }
 
-func (p *PubSub) getReply(websocket websocket.Connection) func(*messaging.Event) error {
+func (p *PubSub) getReply(websocket iris.WebsocketConnection) func(*messaging.Event) error {
 	return func(event *messaging.Event) error {
 		eventJSON, err := event.MarshalJSON()
 		if err != nil {
@@ -140,7 +140,7 @@ func (p *PubSub) getReply(websocket websocket.Connection) func(*messaging.Event)
 }
 
 //BindEvents listens to websocket events.
-func (p *PubSub) BindEvents(websocket websocket.Connection, player *Player) {
+func (p *PubSub) BindEvents(websocket iris.WebsocketConnection, player *Player) {
 	websocket.OnMessage(func(message []byte) {
 		received := time.Now().UnixNano()
 

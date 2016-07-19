@@ -13,6 +13,26 @@ setup: setup-hooks
 build:
 	@go build $(PACKAGES)
 
+dependencies deps: gnatsd redis
+
+# get a test redis instance up (localhost:7777)
+redis: redis-shutdown
+	@redis-server ./config/redis.conf; sleep 1
+	@redis-cli -p 8787 info > /dev/null
+
+# shutdown test redis instance (localhost:7777)
+redis-shutdown:
+	@-redis-cli -p 8787 shutdown
+
+# start test gnatsd (localhost:7778)
+gnatsd: gnatsd-shutdown
+	@rm -rf /tmp/level-gnatsd.pid
+	@gnatsd -p 8788 --pid /tmp/level-gnatsd.pid &
+
+# shutdown test gnatsd
+gnatsd-shutdown:
+	@-cat /tmp/level-gnatsd.pid | xargs kill -9
+
 test: test-redis test-gnatsd-shutdown
 	@ginkgo --cover $(DIRS)
 
@@ -37,11 +57,11 @@ test-redis-shutdown:
 # start test gnatsd (localhost:7778)
 test-gnatsd: test-gnatsd-shutdown
 	@rm -rf /tmp/level-gnatsd.pid
-	@gnatsd -p 7778 --pid /tmp/level-gnatsd.pid &
+	@gnatsd -p 7778 --pid /tmp/level-test-gnatsd.pid &
 
 # shutdown test gnatsd
 test-gnatsd-shutdown:
-	@-cat /tmp/level-gnatsd.pid | xargs kill -9
+	@-cat /tmp/level-test-gnatsd.pid | xargs kill -9
 
 schema-update: schema-remove
 	@easyjson --all messaging/*.go

@@ -7,15 +7,8 @@
 
 package main
 
-import (
-	"fmt"
-
-	"github.com/heynemann/level/extensions/sessionManager"
-	"github.com/uber-go/zap"
-)
+import "github.com/heynemann/level/cmd"
 
 func main() {
-	logger := zap.NewJSON()
-	s, _ := sessionManager.GetRedisSessionManager("localhost", 7777, "", 0, 180, logger)
-	fmt.Println("Hello!", s)
+	cmd.Execute()
 }
