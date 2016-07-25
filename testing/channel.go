@@ -12,18 +12,26 @@ package testing
 
 import (
 	"fmt"
+	"net/url"
+	"strings"
+	"sync"
 	"time"
 
-	"golang.org/x/net/websocket"
-
+	"github.com/gorilla/websocket"
 	"github.com/heynemann/level/channel"
 	"github.com/heynemann/level/messaging"
 	"github.com/uber-go/zap"
 )
 
-////////////////////////////////////////////////////////////////////////////////
-// Running gnatsd server in separate Go routines
-////////////////////////////////////////////////////////////////////////////////
+// DefaultTestOptions returns default options for channel tests
+func DefaultTestOptions() *channel.Options {
+	return channel.NewOptions(
+		"0.0.0.0",
+		3000,
+		true,
+		"../config/test.yaml",
+	)
+}
 
 //RunChannel will run a server on the default port.
 func RunChannel(logger zap.Logger) (*channel.Channel, error) {
@@ -32,7 +40,7 @@ func RunChannel(logger zap.Logger) (*channel.Channel, error) {
 
 //RunChannelOnPort will run a server on the given port.
 func RunChannelOnPort(port int, logger zap.Logger) (*channel.Channel, error) {
-	options := channel.DefaultOptions()
+	options := DefaultTestOptions()
 	options.Port = port
 
 	channel, err := channel.New(options, logger)
@@ -48,66 +56,121 @@ func RunChannelOnPort(port int, logger zap.Logger) (*channel.Channel, error) {
 
 //TestConnection to a channel
 type TestConnection struct {
-	Channel *channel.Channel
-	ws      *websocket.Conn
+	Channel    *channel.Channel
+	ws         *websocket.Conn
+	Received   []*messaging.Event
+	Errors     []error
+	Stop       chan bool
+	Waiter     sync.WaitGroup
+	PingTicker *time.Ticker
 }
 
 //NewChannelTestConnection creates a new test connection to a channel
 func NewChannelTestConnection(channel *channel.Channel) (*TestConnection, error) {
-	tc := &TestConnection{
-		Channel: channel,
-	}
-	origin := fmt.Sprintf("http://%s", channel.ServerOptions.Host)
-	url := fmt.Sprintf("ws://%s:%d", channel.ServerOptions.Host, channel.ServerOptions.Port)
+	timeout := time.Duration(100 * time.Millisecond)
+	pongWait := 60 * time.Millisecond
 
-	var err error
+	tc := &TestConnection{
+		Channel:    channel,
+		Received:   []*messaging.Event{},
+		Errors:     []error{},
+		Stop:       make(chan bool),
+		PingTicker: time.NewTicker(50 * time.Millisecond),
+	}
+	wsURL := fmt.Sprintf("%s:%d", channel.ServerOptions.Host, channel.ServerOptions.Port)
+
+	u := url.URL{Scheme: "ws", Host: wsURL, Path: "/"}
+
+	start := time.Now()
+
 	var ws *websocket.Conn
+	var err error
 
 	for {
-		ws, err = websocket.Dial(url, "", origin)
+		if time.Now().Sub(start) > timeout {
+			return nil, fmt.Errorf("Timed out trying to establish websocket connection to %s.", wsURL)
+		}
+
+		ws, _, err = websocket.DefaultDialer.Dial(u.String(), nil)
 		if err != nil {
-			time.Sleep(10 * time.Millisecond)
+			time.Sleep(5 * time.Millisecond)
 			continue
 		}
 		break
 	}
 	tc.ws = ws
 
+	ws.SetPongHandler(func(string) error { ws.SetReadDeadline(time.Now().Add(pongWait)); return nil })
+
+	go func(conn *TestConnection) {
+		for {
+			select {
+			case <-conn.PingTicker.C:
+				if err := ws.WriteMessage(websocket.PingMessage, []byte{}); err != nil {
+					return
+				}
+			case <-conn.Stop:
+				return
+			default:
+				ev, err := conn.Receive()
+				if err != nil {
+					conn.Errors = append(conn.Errors, err)
+					if strings.HasSuffix(err.Error(), "i/o timeout") {
+						close(conn.Stop)
+						return
+					}
+				}
+				conn.Received = append(conn.Received, ev)
+			}
+		}
+	}(tc)
+
 	return tc, nil
+}
+
+// Close websocket connection and stop listening for events.
+func (tc *TestConnection) Close() {
+	close(tc.Stop)
+	tc.ws.Close()
 }
 
 //Send an action through the channel
 func (tc *TestConnection) Send(action *messaging.Action) error {
 	payload, _ := action.MarshalJSON()
-	_, err := tc.ws.Write(payload)
+	err := tc.ws.WriteMessage(websocket.TextMessage, payload)
 	if err != nil {
 		return err
 	}
+	tc.Waiter.Add(1)
 
 	return nil
 }
 
+//Wait for responses for all sent messages
+func (tc *TestConnection) Wait() {
+	tc.Waiter.Wait()
+}
+
 //Receive the next event
 func (tc *TestConnection) Receive(to ...time.Duration) (*messaging.Event, error) {
-	timeout := 100 * time.Millisecond
+	c := tc.ws
+
+	timeout := 10 * time.Millisecond
 	if to != nil && len(to) == 1 {
 		timeout = to[0]
 	}
-	var msg = make([]byte, 10240)
-	var err error
-	var n int
-	tc.ws.SetReadDeadline(time.Now().Add(timeout))
-	if n, err = tc.ws.Read(msg); err != nil {
+	c.SetReadDeadline(time.Now().Add(timeout))
+
+	_, message, err := c.ReadMessage()
+	if err != nil {
 		return nil, err
 	}
-	if n == 0 {
-		return nil, fmt.Errorf("Could not read any bytes from the socket.")
-	}
-	event := &messaging.Event{}
-	err = event.UnmarshalJSON(msg[:n])
+	tc.Waiter.Done()
+	ev := messaging.Event{}
+	err = ev.UnmarshalJSON(message)
 	if err != nil {
 		return nil, err
 	}
 
-	return event, nil
+	return &ev, nil
 }

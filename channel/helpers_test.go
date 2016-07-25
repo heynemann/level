@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/heynemann/level/channel"
+	"github.com/heynemann/level/testing"
 	. "github.com/onsi/gomega"
 	"github.com/valyala/fasthttp"
 
@@ -22,7 +23,7 @@ import (
 
 // GetDefaultTestApp returns a new Santiago API Application bound to 0.0.0.0:8888 for test
 func GetDefaultTestApp(logger zap.Logger) (*channel.Channel, error) {
-	options := channel.DefaultOptions()
+	options := testing.DefaultTestOptions()
 	return channel.New(options, logger)
 }
 

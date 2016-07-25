@@ -15,10 +15,11 @@ build:
 
 dependencies deps: gnatsd redis
 
-# get a test redis instance up (localhost:7777)
+# get a redis instance up (localhost:8787)
 redis: redis-shutdown
 	@redis-server ./config/redis.conf; sleep 1
 	@redis-cli -p 8787 info > /dev/null
+	@echo "redis running at localhost:8787."
 
 # shutdown test redis instance (localhost:7777)
 redis-shutdown:
@@ -49,6 +50,7 @@ test-coverage-html: test-coverage
 test-redis: test-redis-shutdown
 	@redis-server ./config/test-redis.conf; sleep 1
 	@redis-cli -p 7777 info > /dev/null
+	@echo "test-redis running at localhost:7777."
 
 # shutdown test redis instance (localhost:7777)
 test-redis-shutdown:

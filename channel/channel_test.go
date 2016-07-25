@@ -35,7 +35,7 @@ var _ = Describe("Channel", func() {
 	Describe("Channel", func() {
 		Describe("Channel creation", func() {
 			It("should create new channel", func() {
-				channel, err := channel.New(nil, logger)
+				channel, err := channel.New(DefaultTestOptions(), logger)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(channel).NotTo(BeNil())
 				Expect(channel.ServerOptions).NotTo(BeNil())
@@ -65,7 +65,7 @@ var _ = Describe("Channel", func() {
 
 		Describe("Channel Default Configurations", func() {
 			It("Should set default configurations", func() {
-				channel, err := channel.New(nil, logger)
+				channel, err := channel.New(DefaultTestOptions(), logger)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(channel).NotTo(BeNil())
 
@@ -75,10 +75,7 @@ var _ = Describe("Channel", func() {
 
 		Describe("Channel Load Configuration", func() {
 			It("Should load configuration from file", func() {
-				options := channel.DefaultOptions()
-				options.ConfigFile = "../config/default.yaml"
-
-				channel, err := channel.New(options, logger)
+				channel, err := channel.New(DefaultTestOptions(), logger)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(channel.Config).NotTo(BeNil())
 
@@ -109,7 +106,7 @@ var _ = Describe("Channel", func() {
 
 		Describe("Channel Initialization", func() {
 			It("should initialize redis", func() {
-				channel, err := channel.New(nil, logger)
+				channel, err := channel.New(DefaultTestOptions(), logger)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(channel).NotTo(BeNil())
 
@@ -140,7 +137,7 @@ var _ = Describe("Channel", func() {
 			})
 
 			It("should initialize pubsub", func() {
-				channel, err := channel.New(nil, logger)
+				channel, err := channel.New(DefaultTestOptions(), logger)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(channel).NotTo(BeNil())
 
@@ -168,17 +165,20 @@ var _ = Describe("Channel", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				conn, err := NewChannelTestConnection(channel)
+				defer conn.Close()
 				Expect(err).NotTo(HaveOccurred())
 
-				err = conn.Send(messaging.NewAction("", "channel.heartbeat", map[string]interface{}{
-					"clientSent": time.Now().UnixNano(),
-				}))
-				Expect(err).NotTo(HaveOccurred())
+				for i := 0; i < 3; i++ {
+					err = conn.Send(messaging.NewAction("", "channel.heartbeat.ping", map[string]interface{}{
+						"clientSent": time.Now().UnixNano(),
+					}))
+					Expect(err).NotTo(HaveOccurred())
+				}
 
-				ev, err := conn.Receive()
-				Expect(err).NotTo(HaveOccurred())
+				conn.Wait()
 
-				Expect(ev.Key).To(Equal("channel.heartbeat"))
+				Expect(conn.Received).To(HaveLen(3))
+				//Expect(ev.Key).To(Equal("channel.heartbeat"))
 			})
 		})
 	})

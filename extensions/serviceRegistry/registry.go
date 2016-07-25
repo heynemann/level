@@ -32,7 +32,7 @@ type Service interface {
 //ServiceRegistry is the registry where all services specify their properties
 type ServiceRegistry struct {
 	Logger zap.Logger
-	Client *nats.EncodedConn
+	Client *nats.Conn
 }
 
 //NewServiceRegistry returns a connected redis service registry
@@ -51,12 +51,7 @@ func NewServiceRegistry(natsURL string, logger zap.Logger) (*ServiceRegistry, er
 		return nil, err
 	}
 
-	c, err := nats.NewEncodedConn(nc, nats.JSON_ENCODER)
-	if err != nil {
-		return nil, err
-	}
-
-	rsr.Client = c
+	rsr.Client = nc
 
 	return rsr, nil
 }
@@ -81,14 +76,22 @@ func (s *ServiceRegistry) listenForMessages(service Service, action *Action) {
 		queue = fmt.Sprintf("%s.>", queue)
 	}
 
-	s.Client.QueueSubscribe(queue, "default", func(subj, reply string, msg *nats.Msg) {
+	fmt.Println("Subscribing to ", queue)
+	s.Client.QueueSubscribe(queue, "default", func(msg *nats.Msg) {
+		fmt.Println("Service GOT MESSAGE", string(msg.Data))
 		action := messaging.Action{}
 		action.UnmarshalJSON(msg.Data)
-		event, err := service.HandleAction(subj, &action)
+		event, err := service.HandleAction(msg.Subject, &action)
 		if err != nil {
-			//TODO: LOG ERROR
+			fmt.Println("Error Handling action: ", err)
+			return
 		}
-		s.Client.Publish(reply, event)
+		eventJSON, err := event.MarshalJSON()
+		if err != nil {
+			fmt.Println("Error marshalling event: ", err)
+			return
+		}
+		s.Client.Publish(msg.Reply, eventJSON)
 	})
 }
 

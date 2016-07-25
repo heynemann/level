@@ -1,5 +1,5 @@
-hash: f73d2b0e355ade0d1b91056572871a3c6317437ed34b284208d9948eaba67af2
-updated: 2016-07-19T02:02:34.395657559-03:00
+hash: b97ef13b3f5f8e11d9e7ef67a7f35c2d344ac06a867ea6c8e8e66be23d0830e3
+updated: 2016-07-24T21:57:39.291365493-03:00
 imports:
 - name: github.com/ajg/form
   version: 7ff89c75808766205bfa4411abb436c98c33eb5e
@@ -31,6 +31,8 @@ imports:
   version: 9235644dd9e52eeae6fa48efd539fdc351a0af53
   subpackages:
   - query
+- name: github.com/gorilla/websocket
+  version: 5e2e56d5dfd46884df1036f828777ee6273f2cff
 - name: github.com/hashicorp/hcl
   version: d8c773c4cba11b11539e3d45f93daeaa5dcf1fa1
   subpackages:
@@ -80,10 +82,9 @@ imports:
 - name: github.com/Joker/jade
   version: db4d7e4f68708c5020c392b380e3565df2132840
 - name: github.com/kataras/iris
-  version: 6f91e6c588398f5ee25732c28e2a990ca1c92373
+  version: 3ee38a363c524bcbbde888a1803fd4f27aacee6d
   subpackages:
   - config
-  - websocket
   - context
   - utils
 - name: github.com/klauspost/compress
@@ -195,7 +196,6 @@ imports:
 - name: golang.org/x/net
   version: 3797cd8864994d713d909eda5e61ede8683fdc12
   subpackages:
-  - websocket
   - publicsuffix
   - context
   - html

@@ -18,8 +18,10 @@ import:
 - package: github.com/spf13/viper
 - package: github.com/BurntSushi/toml
 - package: github.com/kataras/iris
+  version: 3ee38a3
 - package: github.com/Joker/jade
 - package: github.com/iris-contrib/middleware
 - package: github.com/spf13/cobra
 - package: github.com/fatih/color
 - package: github.com/valyala/fasthttp
+- package: github.com/gorilla/websocket

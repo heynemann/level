@@ -11,9 +11,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/gorilla/websocket"
 	"github.com/heynemann/level/extensions/sessionManager"
 	"github.com/heynemann/level/messaging"
-	"github.com/kataras/iris"
 	"github.com/nats-io/nats"
 	"github.com/satori/go.uuid"
 	"github.com/uber-go/zap"
@@ -22,12 +22,12 @@ import (
 //Player represents a player connection
 type Player struct {
 	SessionID string
-	Socket    iris.WebsocketConnection
+	Socket    *websocket.Conn
 	Session   *sessionManager.Session
 }
 
 //NewPlayer builds a new player instance
-func NewPlayer(sessionID string, socket iris.WebsocketConnection, session *sessionManager.Session) *Player {
+func NewPlayer(sessionID string, socket *websocket.Conn, session *sessionManager.Session) *Player {
 	return &Player{
 		SessionID: sessionID,
 		Socket:    socket,
@@ -91,7 +91,7 @@ func GetEventQueue() string {
 //}
 
 // RequestAction requests an action to a given server and returns its Event as response
-func (p *PubSub) RequestAction(player *Player, action *messaging.Action, reply func(event *messaging.Event) error, serverReceived int64) error {
+func (p *PubSub) RequestAction(player *Player, action *messaging.Action, reply func(event *messaging.Event) error) error {
 	var response messaging.Event
 	err := p.Conn.Request(action.Key, action, &response, 5*time.Second)
 	if err != nil {
@@ -107,18 +107,19 @@ func (p *PubSub) RequestAction(player *Player, action *messaging.Action, reply f
 }
 
 //RegisterPlayer registers a player to receive/send events
-func (p *PubSub) RegisterPlayer(websocket iris.WebsocketConnection) error {
+func (p *PubSub) RegisterPlayer(websocket *websocket.Conn) (*Player, error) {
 	sessionID := uuid.NewV4().String()
 	session, err := p.SessionManager.Start(sessionID)
 	if err != nil {
 		fmt.Println("ERROR in Session")
-		return err
+		return nil, err
 	}
 	player := NewPlayer(sessionID, websocket, session)
 	p.ConnectedPlayers[sessionID] = player
 
-	p.BindEvents(websocket, player)
-	return nil
+	fmt.Println("Player session:", sessionID)
+	//p.BindEvents(websocket, player)
+	return player, nil
 }
 
 //UnregisterPlayer removes player from connected players upon disconnection
@@ -127,46 +128,44 @@ func (p *PubSub) UnregisterPlayer(player *Player) error {
 	return nil
 }
 
-func (p *PubSub) getReply(websocket iris.WebsocketConnection) func(*messaging.Event) error {
+func (p *PubSub) getReply(ws *websocket.Conn) func(*messaging.Event) error {
 	return func(event *messaging.Event) error {
 		eventJSON, err := event.MarshalJSON()
 		if err != nil {
-			websocket.EmitError(fmt.Sprintf("Failed to process action: %s", err.Error()))
+			//websocket.EmitError(fmt.Sprintf("Failed to process action: %s", err.Error()))
 			return err
 		}
-		websocket.EmitMessage(eventJSON)
+		ws.WriteMessage(websocket.TextMessage, eventJSON)
+		//websocket.EmitMessage(eventJSON)
 		return nil
 	}
 }
 
 //BindEvents listens to websocket events.
-func (p *PubSub) BindEvents(websocket iris.WebsocketConnection, player *Player) {
-	websocket.OnMessage(func(message []byte) {
-		received := time.Now().UnixNano()
-
-		var action messaging.Action
-		err := action.UnmarshalJSON(message)
-		if err != nil {
-			return
-		}
-
-		err = p.RequestAction(player, &action, p.getReply(websocket), received)
-		if err != nil {
-			fmt.Println("GOT AN ERROR REQUESTING ACTION: ", err.Error())
-		}
-	})
-	// to all except this connection ->
-	//c.To(websocket.Broadcast).Emit("chat", "Message from: "+c.ID()+"-> "+message)
-
-	// to the client ->
-	//c.Emit("chat", "Message from myself: "+message)
-
-	//send the message to the whole room,
-	//all connections are inside this room will receive this message
-	//c.Emit("chat", "From: "+c.ID()+": "+message)
+//func (p *PubSub) BindEvents(websocket iris.WebsocketConnection, player *Player) {
+func (p *PubSub) BindEvents(websocket *websocket.Conn) {
+	//websocket.OnError(func(err string) {
+	//fmt.Println("Websocket error happened:", err)
 	//})
 
-	websocket.OnDisconnect(func() {
-		p.UnregisterPlayer(player)
-	})
+	//websocket.OnMessage(func(message []byte) {
+	//fmt.Println("GOT MESSAGE in PubSub", string(message))
+	//received := time.Now().UnixNano()
+
+	//var action messaging.Action
+	//err := action.UnmarshalJSON(message)
+	//if err != nil {
+	//return
+	//}
+
+	//err = p.RequestAction(player, &action, p.getReply(websocket), received)
+	//if err != nil {
+	//fmt.Println("GOT AN ERROR REQUESTING ACTION: ", err.Error())
+	//}
+	//})
+
+	//websocket.OnDisconnect(func() {
+	//fmt.Println("Disconnecting player: ", player.SessionID)
+	//p.UnregisterPlayer(player)
+	//})
 }
