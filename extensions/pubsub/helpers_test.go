@@ -12,13 +12,10 @@ package pubsub_test
 
 import (
 	"fmt"
+	"net/http"
 
 	"github.com/heynemann/level/extensions/pubsub"
-	"github.com/iris-contrib/middleware/cors"
-	"github.com/kataras/iris"
-	"github.com/kataras/iris/config"
-	irisSocket "github.com/kataras/iris/websocket"
-	. "github.com/onsi/gomega"
+	//. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 )
 
@@ -71,33 +68,35 @@ func (matcher *mapEqualMatcher) NegatedFailureMessage(actual interface{}) (messa
 	return fmt.Sprintf("Expected\n\t%#v\nnot to be the same as \n\t%#v", actual, matcher.expected)
 }
 
-func getServer(pubSub *pubsub.PubSub) (int, *iris.Framework, *[]string) {
+func getServer(pubSub *pubsub.PubSub) (int, *http.Server, *[]string) {
 	messages := []string{}
 
-	conf := config.Iris{
-		DisableBanner: true,
-	}
-	s := iris.New(conf)
+	//conf := config.Iris{
+	//DisableBanner: true,
+	//}
+	//s := iris.New(conf)
 
-	opt := cors.Options{AllowedOrigins: []string{"*"}}
-	s.Use(cors.New(opt)) // crs
+	//opt := cors.Options{AllowedOrigins: []string{"*"}}
+	//s.Use(cors.New(opt)) // crs
 
-	s.Config.Websocket.Endpoint = "/"
-	ws := s.Websocket // get the websocket server
-	ws.OnConnection(func(socket irisSocket.Connection) {
-		err := pubSub.RegisterPlayer(socket)
-		Expect(err).NotTo(HaveOccurred())
+	//s.Config.Websocket.Endpoint = "/"
+	//ws := s.Websocket // get the websocket server
+	//ws.OnConnection(func(socket irisSocket.Connection) {
+	//err := pubSub.RegisterPlayer(socket)
+	//Expect(err).NotTo(HaveOccurred())
 
-		socket.OnMessage(func(message []byte) {
-			messages = append(messages, string(message))
-		})
-	})
+	//socket.OnMessage(func(message []byte) {
+	//messages = append(messages, string(message))
+	//})
+	//})
 
-	serverPorts++
+	//serverPorts++
 
-	go func() {
-		s.Listen(fmt.Sprintf("localhost:%d", serverPorts))
-	}()
+	//go func() {
+	//s.Listen(fmt.Sprintf("localhost:%d", serverPorts))
+	//}()
 
-	return serverPorts, s, &messages
+	//channel, err := RunChannelOnPort(7575, logger)
+
+	return serverPorts, nil, &messages
 }

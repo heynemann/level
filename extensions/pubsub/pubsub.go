@@ -79,17 +79,6 @@ func GetEventQueue() string {
 	return "level.events"
 }
 
-// SubscribeActions subscribes a specific server to all actions arriving in its queue
-//func (p *PubSub) SubscribeActions(serverName string, callback func(func(*messaging.Event), *messaging.Action)) error {
-//p.Conn.Subscribe(GetServerQueue(serverName), func(subj, reply string, action *messaging.Action) {
-//replyFunc := func(e *messaging.Event) {
-//p.Conn.Publish(reply, e)
-//}
-//callback(replyFunc, action)
-//})
-//return nil
-//}
-
 // RequestAction requests an action to a given server and returns its Event as response
 func (p *PubSub) RequestAction(player *Player, action *messaging.Action, reply func(event *messaging.Event) error) error {
 	var response messaging.Event
@@ -117,8 +106,6 @@ func (p *PubSub) RegisterPlayer(websocket *websocket.Conn) (*Player, error) {
 	player := NewPlayer(sessionID, websocket, session)
 	p.ConnectedPlayers[sessionID] = player
 
-	fmt.Println("Player session:", sessionID)
-	//p.BindEvents(websocket, player)
 	return player, nil
 }
 
@@ -132,40 +119,9 @@ func (p *PubSub) getReply(ws *websocket.Conn) func(*messaging.Event) error {
 	return func(event *messaging.Event) error {
 		eventJSON, err := event.MarshalJSON()
 		if err != nil {
-			//websocket.EmitError(fmt.Sprintf("Failed to process action: %s", err.Error()))
 			return err
 		}
 		ws.WriteMessage(websocket.TextMessage, eventJSON)
-		//websocket.EmitMessage(eventJSON)
 		return nil
 	}
-}
-
-//BindEvents listens to websocket events.
-//func (p *PubSub) BindEvents(websocket iris.WebsocketConnection, player *Player) {
-func (p *PubSub) BindEvents(websocket *websocket.Conn) {
-	//websocket.OnError(func(err string) {
-	//fmt.Println("Websocket error happened:", err)
-	//})
-
-	//websocket.OnMessage(func(message []byte) {
-	//fmt.Println("GOT MESSAGE in PubSub", string(message))
-	//received := time.Now().UnixNano()
-
-	//var action messaging.Action
-	//err := action.UnmarshalJSON(message)
-	//if err != nil {
-	//return
-	//}
-
-	//err = p.RequestAction(player, &action, p.getReply(websocket), received)
-	//if err != nil {
-	//fmt.Println("GOT AN ERROR REQUESTING ACTION: ", err.Error())
-	//}
-	//})
-
-	//websocket.OnDisconnect(func() {
-	//fmt.Println("Disconnecting player: ", player.SessionID)
-	//p.UnregisterPlayer(player)
-	//})
 }

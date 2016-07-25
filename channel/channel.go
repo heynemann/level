@@ -9,21 +9,17 @@ package channel
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
-	"github.com/gorilla/websocket"
 	"github.com/heynemann/level/extensions/pubsub"
 	"github.com/heynemann/level/extensions/redis"
 	"github.com/heynemann/level/extensions/serviceRegistry"
 	"github.com/heynemann/level/extensions/sessionManager"
-	"github.com/heynemann/level/messaging"
 	"github.com/heynemann/level/services/heartbeat"
-	"github.com/kataras/iris"
 	"github.com/satori/go.uuid"
 	"github.com/spf13/viper"
 	"github.com/uber-go/zap"
@@ -39,8 +35,8 @@ type Channel struct {
 	ServiceRegistry *registry.ServiceRegistry
 	PubSub          *pubsub.PubSub
 	ServerOptions   *Options
-	WebApp          *iris.Framework
-	SocketApp       string
+	//WebApp          *iris.Framework
+	WebApp *http.Server
 }
 
 //New opens a new channel connection
@@ -241,95 +237,20 @@ func (c *Channel) initializeDefaultServices() error {
 	return nil
 }
 
-//func (c *Channel) initializeWebApp() {
-////debug := c.ServerOptions.Debug
-
-//conf := config.Iris{
-//DisableBanner: true,
-//}
-
-//c.WebApp = iris.New(conf)
-
-////if debug {
-////c.WebApp.Use(logger.New(iris.Logger))
-////}
-//c.WebApp.Use(recovery.New(os.Stderr))
-
-//opt := cors.Options{AllowedOrigins: []string{"*"}}
-//c.WebApp.Use(cors.New(opt)) // crs
-
-//c.WebApp.Get("/healthcheck", HealthCheckHandler(c))
-//}
-
-//func (c *Channel) initializeWebSocket() {
-//c.Logger.Debug("Initializing websocket...")
-//c.WebApp.Config.Websocket.Endpoint = "/"
-//ws := c.WebApp.Websocket // get the websocket server
-//ws.OnConnection(func(socket iris.WebsocketConnection) {
-//fmt.Println("got player connection")
-//c.PubSub.RegisterPlayer(socket)
-//c.PubSub.BindEvents(socket)
-////socket.OnMessage(func(message []byte) {
-////fmt.Println(string(message))
-////})
-//})
-//c.Logger.Info("Websocket initialized.")
-//}
-
 func (c *Channel) initializeWebApp() {
-
 }
 
 func (c *Channel) initializeWebSocket() {
-	var upgrader = websocket.Upgrader{} // use default options
+	handler := NewWebSocketHandler(c)
 
-	var handler = func(w http.ResponseWriter, r *http.Request) {
-		conn, err := upgrader.Upgrade(w, r, nil)
-		if err != nil {
-			log.Print("upgrade:", err)
-			return
-		}
-
-		player, err := c.PubSub.RegisterPlayer(conn)
-		if err != nil {
-			fmt.Println("Error registering player: ", err)
-			return
-		}
-
-		for {
-			mt, message, err := conn.ReadMessage()
-			if err != nil {
-				if strings.Contains(err.Error(), "abnormal closure") {
-					return
-				}
-				fmt.Println("read:", err)
-				continue
-			}
-			fmt.Printf("recv: [%d] %s\n", mt, message)
-			action := &messaging.Action{}
-			err = action.UnmarshalJSON(message)
-			if err != nil {
-				fmt.Println("Error with action: ", err)
-				continue
-			}
-			c.PubSub.RequestAction(player, action, func(event *messaging.Event) error {
-				json, err := event.MarshalJSON()
-				if err != nil {
-					fmt.Println("Error sending action reply")
-					return err
-				}
-				conn.WriteMessage(websocket.TextMessage, json)
-				return nil
-			})
-		}
+	server := fmt.Sprintf("%s:%d", c.ServerOptions.Host, c.ServerOptions.Port)
+	c.WebApp = &http.Server{
+		Addr:    server,
+		Handler: handler,
 	}
-
-	http.HandleFunc("/", handler)
 }
 
 //Start the channel
 func (c *Channel) Start() {
-	server := fmt.Sprintf("%s:%d", c.ServerOptions.Host, c.ServerOptions.Port)
-	http.ListenAndServe(server, nil)
-	//c.WebApp.Listen(server)
+	c.WebApp.ListenAndServe()
 }

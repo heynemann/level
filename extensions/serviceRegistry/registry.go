@@ -76,9 +76,7 @@ func (s *ServiceRegistry) listenForMessages(service Service, action *Action) {
 		queue = fmt.Sprintf("%s.>", queue)
 	}
 
-	fmt.Println("Subscribing to ", queue)
 	s.Client.QueueSubscribe(queue, "default", func(msg *nats.Msg) {
-		fmt.Println("Service GOT MESSAGE", string(msg.Data))
 		action := messaging.Action{}
 		action.UnmarshalJSON(msg.Data)
 		event, err := service.HandleAction(msg.Subject, &action)

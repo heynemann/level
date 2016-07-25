@@ -45,7 +45,7 @@ var _ = Describe("Pubsub", func() {
 
 	Describe("PubSub Extension", func() {
 		Describe("WebSocket connection", func() {
-			It("Should allow websocket connection", func() {
+			XIt("Should allow websocket connection", func() {
 				pubSub, err := pubsub.New(nats.DefaultURL, logger, manager, defaultDuration)
 				Expect(err).NotTo(HaveOccurred())
 
