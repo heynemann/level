@@ -8,40 +8,53 @@
 package session_test
 
 import (
-	"time"
-
-	"github.com/heynemann/level/extensions/pubsub"
+	"github.com/heynemann/level/extensions/serviceRegistry"
 	"github.com/heynemann/level/messaging"
 	"github.com/heynemann/level/services/session"
+	. "github.com/heynemann/level/testing"
+	gnatsServer "github.com/nats-io/gnatsd/server"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/satori/go.uuid"
 )
 
 var _ = Describe("Session Service", func() {
+	var logger *MockLogger
+	var NATSServer *gnatsServer.Server
+	var reg *registry.ServiceRegistry
+
+	BeforeEach(func() {
+		var err error
+
+		logger = NewMockLogger()
+		NATSServer = RunServerOnPort(5555)
+		reg, err = registry.NewServiceRegistry("nats://127.0.0.1:5555", logger)
+		Expect(err).NotTo(HaveOccurred())
+	})
+	AfterEach(func() {
+		reg.Terminate()
+		NATSServer.Shutdown()
+		NATSServer = nil
+	})
+
 	It("Should handle session action", func() {
-		service := session.NewSessionService()
-		ps := &pubsub.PubSub{}
-		service.Initialize(ps)
-		Expect(service.PubSub).To(Equal(ps))
+		service, err := session.NewSessionService(uuid.NewV4().String(), reg)
+		Expect(err).NotTo(HaveOccurred())
+
+		sessionID := uuid.NewV4().String()
 
 		action := messaging.NewAction(
-			"",
+			sessionID,
 			"channel.session.start",
 			nil,
 		)
 
 		Expect(action).NotTo(BeNil())
 
-		event := &messaging.Event{}
-		reply := func(ev *messaging.Event) error {
-			event = ev
-			return nil
-		}
+		event, err := service.HandleAction("channel.session", action)
+		Expect(err).NotTo(HaveOccurred())
 
-		sessionID := uuid.NewV4().String()
-		service.HandleAction(sessionID, action, reply, time.Now().UnixNano())
-		Expect(event.Key).To(Equal("channel.session.joined"))
+		Expect(event.Key).To(Equal("channel.session.started"))
 		Expect(event.Payload).NotTo(BeNil())
 
 		p := event.Payload.(map[string]interface{})
