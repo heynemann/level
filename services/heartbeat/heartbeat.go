@@ -49,14 +49,9 @@ func (s *Service) Initialize() error {
 	return nil
 }
 
-//GetServiceActions returns all the actions the service can handle
-func (s *Service) GetServiceActions() []*registry.Action {
-	return []*registry.Action{
-		&registry.Action{
-			Key:    "channel.heartbeat",
-			Sticky: false,
-		},
-	}
+//GetServiceInfo return the namespace for the service and if it is sticky
+func (s *Service) GetServiceInfo() (string, bool) {
+	return "channel.heartbeat", false
 }
 
 //HandleAction handles a given action for an user

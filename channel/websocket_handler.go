@@ -9,52 +9,22 @@ package channel
 
 import (
 	"fmt"
-	"io"
-	"log"
-	"net/http"
 	"strings"
 
-	"github.com/gorilla/websocket"
 	"github.com/heynemann/level/messaging"
+	"github.com/iris-contrib/websocket"
+	"github.com/kataras/iris"
 )
 
-//NewWebSocketHandler creates a new websocket handler that sends and receives messages
-func NewWebSocketHandler(channel *Channel) *WebsocketHandler {
-	handler := &WebsocketHandler{
-		Channel: channel,
-		Mux:     map[string]func(http.ResponseWriter, *http.Request){},
-	}
-
-	handler.Mux["/"] = handler.ServeWS
-
-	return handler
+//WebsocketHandlerInstance is an instance of a websocket connection
+type WebsocketHandlerInstance struct {
+	channel *Channel
 }
 
-//WebsocketHandler struct
-type WebsocketHandler struct {
-	Channel *Channel
-	Mux     map[string]func(http.ResponseWriter, *http.Request)
-}
+func (ws *WebsocketHandlerInstance) handleWebSocket(conn *websocket.Conn) {
+	defer conn.Close()
 
-func (ws *WebsocketHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if h, ok := ws.Mux[r.URL.String()]; ok {
-		h(w, r)
-		return
-	}
-
-	io.WriteString(w, "My server: "+r.URL.String())
-}
-
-//ServeWS is the / route that serves websocket connections
-func (ws *WebsocketHandler) ServeWS(w http.ResponseWriter, r *http.Request) {
-	c := ws.Channel
-
-	var upgrader = websocket.Upgrader{} // use default options
-	conn, err := upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		log.Print("upgrade:", err)
-		return
-	}
+	c := ws.channel
 
 	player, err := c.PubSub.RegisterPlayer(conn)
 	if err != nil {
@@ -71,12 +41,14 @@ func (ws *WebsocketHandler) ServeWS(w http.ResponseWriter, r *http.Request) {
 			fmt.Println("read:", err)
 			continue
 		}
+
 		action := &messaging.Action{}
 		err = action.UnmarshalJSON(message)
 		if err != nil {
 			fmt.Println("Error with action: ", err)
 			continue
 		}
+
 		c.PubSub.RequestAction(player, action, func(event *messaging.Event) error {
 			json, err := event.MarshalJSON()
 			if err != nil {
@@ -87,5 +59,20 @@ func (ws *WebsocketHandler) ServeWS(w http.ResponseWriter, r *http.Request) {
 			return nil
 		})
 	}
+}
 
+//WebSocketHandler handles websocket connections
+func WebSocketHandler(c *Channel) func(*iris.Context) {
+	ws := &WebsocketHandlerInstance{
+		channel: c,
+	}
+	upgrader := websocket.New(ws.handleWebSocket)
+	upgrader.DontCheckOrigin()
+
+	return func(ctx *iris.Context) {
+		err := upgrader.Upgrade(ctx)
+		if err != nil {
+			fmt.Println("Error in connection: ", err)
+		}
+	}
 }

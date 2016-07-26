@@ -11,9 +11,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/gorilla/websocket"
 	"github.com/heynemann/level/extensions/sessionManager"
 	"github.com/heynemann/level/messaging"
+	"github.com/iris-contrib/websocket"
 	"github.com/nats-io/nats"
 	"github.com/satori/go.uuid"
 	"github.com/uber-go/zap"
@@ -105,6 +105,9 @@ func (p *PubSub) RegisterPlayer(websocket *websocket.Conn) (*Player, error) {
 	}
 	player := NewPlayer(sessionID, websocket, session)
 	p.ConnectedPlayers[sessionID] = player
+
+	action := messaging.NewAction(sessionID, "channel.session.start", nil)
+	p.RequestAction(player, action, p.getReply(websocket))
 
 	return player, nil
 }

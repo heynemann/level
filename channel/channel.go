@@ -9,7 +9,6 @@ package channel
 
 import (
 	"fmt"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -20,6 +19,11 @@ import (
 	"github.com/heynemann/level/extensions/serviceRegistry"
 	"github.com/heynemann/level/extensions/sessionManager"
 	"github.com/heynemann/level/services/heartbeat"
+	"github.com/heynemann/level/services/session"
+	"github.com/iris-contrib/middleware/logger"
+	"github.com/iris-contrib/middleware/recovery"
+	"github.com/kataras/iris"
+	"github.com/kataras/iris/config"
 	"github.com/satori/go.uuid"
 	"github.com/spf13/viper"
 	"github.com/uber-go/zap"
@@ -35,8 +39,7 @@ type Channel struct {
 	ServiceRegistry *registry.ServiceRegistry
 	PubSub          *pubsub.PubSub
 	ServerOptions   *Options
-	//WebApp          *iris.Framework
-	WebApp *http.Server
+	WebApp          *iris.Framework
 }
 
 //New opens a new channel connection
@@ -229,28 +232,45 @@ func (c *Channel) initializeDefaultServices() error {
 	if err != nil {
 		return err
 	}
-	//sessions, err := session.NewSessionService()
-	//if err != nil {
-	//return err
-	//}
-
+	sID := fmt.Sprintf("services:sessions:%s", uuid.NewV4().String())
+	_, err = session.NewSessionService(sID, c.ServiceRegistry)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
 func (c *Channel) initializeWebApp() {
+	debug := c.ServerOptions.Debug
+
+	conf := config.Iris{
+		DisableBanner: true,
+	}
+
+	c.WebApp = iris.New(conf)
+
+	if debug {
+		c.WebApp.Use(logger.New(iris.Logger))
+	}
+	c.WebApp.Use(recovery.New(os.Stderr))
+
+	c.WebApp.Get("/healthcheck", HealthCheckHandler(c))
+	c.WebApp.Get("/", WebSocketHandler(c))
 }
 
 func (c *Channel) initializeWebSocket() {
-	handler := NewWebSocketHandler(c)
-
-	server := fmt.Sprintf("%s:%d", c.ServerOptions.Host, c.ServerOptions.Port)
-	c.WebApp = &http.Server{
-		Addr:    server,
-		Handler: handler,
-	}
+	//c.Logger.Debug("Initializing websocket...")
+	//c.WebApp.Config.Websocket.Endpoint = "/"
+	//ws := c.WebApp.Websocket // get the websocket server
+	//ws.OnConnection(func(socket iris.WebsocketConnection) {
+	//fmt.Println("got player connection")
+	//c.PubSub.RegisterPlayer(socket)
+	//})
+	//c.Logger.Info("Websocket initialized.")
 }
 
 //Start the channel
 func (c *Channel) Start() {
-	c.WebApp.ListenAndServe()
+	server := fmt.Sprintf("%s:%d", c.ServerOptions.Host, c.ServerOptions.Port)
+	c.WebApp.Listen(server)
 }

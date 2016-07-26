@@ -167,6 +167,12 @@ var _ = Describe("Channel", func() {
 				conn, err := NewChannelTestConnection(channel)
 				defer conn.Close()
 				Expect(err).NotTo(HaveOccurred())
+				conn.WaitFor(1)
+
+				Expect(conn.Received).To(HaveLen(1))
+				ev := conn.Received[0]
+				Expect(ev.Key).To(Equal("channel.session.started"))
+				Expect(ev.Payload.(map[string]interface{})["sessionID"]).NotTo(BeNil())
 
 				for i := 0; i < 3; i++ {
 					err = conn.Send(messaging.NewAction("", "channel.heartbeat.ping", map[string]interface{}{
@@ -174,10 +180,9 @@ var _ = Describe("Channel", func() {
 					}))
 					Expect(err).NotTo(HaveOccurred())
 				}
+				conn.WaitFor(3)
 
-				conn.Wait()
-
-				Expect(conn.Received).To(HaveLen(3))
+				Expect(conn.Received).To(HaveLen(4))
 				//Expect(ev.Key).To(Equal("channel.heartbeat"))
 			})
 		})

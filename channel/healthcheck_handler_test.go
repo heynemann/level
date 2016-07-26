@@ -29,7 +29,7 @@ var _ = Describe("Healthcheck Handler", func() {
 		NATSServer = nil
 	})
 
-	XIt("Should respond with default WORKING string", func() {
+	It("Should respond with default WORKING string", func() {
 		a, err := GetDefaultTestApp(logger)
 		Expect(err).NotTo(HaveOccurred())
 		res := Get(a, "/healthcheck")
@@ -38,7 +38,7 @@ var _ = Describe("Healthcheck Handler", func() {
 		Expect(res.Body().Raw()).To(Equal("WORKING"))
 	})
 
-	XIt("Should respond with customized WORKING string", func() {
+	It("Should respond with customized WORKING string", func() {
 		a, err := GetDefaultTestApp(logger)
 		Expect(err).NotTo(HaveOccurred())
 

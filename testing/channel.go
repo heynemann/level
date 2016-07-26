@@ -14,7 +14,6 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -61,8 +60,8 @@ type TestConnection struct {
 	Received   []*messaging.Event
 	Errors     []error
 	Stop       chan bool
-	Waiter     sync.WaitGroup
 	PingTicker *time.Ticker
+	Waited     int
 }
 
 //NewChannelTestConnection creates a new test connection to a channel
@@ -141,14 +140,31 @@ func (tc *TestConnection) Send(action *messaging.Action) error {
 	if err != nil {
 		return err
 	}
-	tc.Waiter.Add(1)
 
 	return nil
 }
 
-//Wait for responses for all sent messages
-func (tc *TestConnection) Wait() {
-	tc.Waiter.Wait()
+//WaitFor messages to come
+func (tc *TestConnection) WaitFor(messages int, to ...time.Duration) error {
+	timeout := 50 * time.Millisecond
+	if to != nil && len(to) == 1 {
+		timeout = to[0]
+	}
+
+	start := time.Now()
+
+	for {
+		if time.Now().Sub(start) > timeout {
+			return fmt.Errorf("Timed out waiting for WebSocket messages to come in.")
+		}
+
+		if len(tc.Received) >= messages {
+			tc.Waited += messages
+			return nil
+		}
+
+		time.Sleep(5 * time.Millisecond)
+	}
 }
 
 //Receive the next event
@@ -165,7 +181,6 @@ func (tc *TestConnection) Receive(to ...time.Duration) (*messaging.Event, error)
 	if err != nil {
 		return nil, err
 	}
-	tc.Waiter.Done()
 	ev := messaging.Event{}
 	err = ev.UnmarshalJSON(message)
 	if err != nil {

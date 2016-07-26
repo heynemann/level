@@ -15,17 +15,11 @@ import (
 	"github.com/uber-go/zap"
 )
 
-//Action represents an action that can be handled by the Service
-type Action struct {
-	Key    string
-	Sticky bool
-}
-
 //Service describes a service
 type Service interface {
 	//Initialize(*PubSub)
 	GetServiceID() string
-	GetServiceActions() []*Action
+	GetServiceInfo() (string, bool)
 	HandleAction(string, *messaging.Action) (*messaging.Event, error)
 }
 
@@ -58,19 +52,15 @@ func NewServiceRegistry(natsURL string, logger zap.Logger) (*ServiceRegistry, er
 
 //Register a given service with the registry
 func (s *ServiceRegistry) Register(service Service) error {
-	actions := service.GetServiceActions()
-
-	for _, action := range actions {
-		s.listenForMessages(service, action)
-	}
+	s.listenForMessages(service)
 
 	return nil
 }
 
-func (s *ServiceRegistry) listenForMessages(service Service, action *Action) {
+func (s *ServiceRegistry) listenForMessages(service Service) {
 	serviceID := service.GetServiceID()
-	queue := action.Key
-	if action.Sticky {
+	queue, sticky := service.GetServiceInfo()
+	if sticky {
 		queue = fmt.Sprintf("%s.%s", queue, serviceID)
 	} else {
 		queue = fmt.Sprintf("%s.>", queue)

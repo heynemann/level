@@ -25,3 +25,4 @@ import:
 - package: github.com/fatih/color
 - package: github.com/valyala/fasthttp
 - package: github.com/gorilla/websocket
+- package: github.com/iris-contrib/websocket
