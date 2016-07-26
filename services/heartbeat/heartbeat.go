@@ -58,7 +58,7 @@ func (s *Service) GetServiceInfo() (string, bool) {
 func (s *Service) HandleAction(subject string, action *messaging.Action) (*messaging.Event, error) {
 	switch action.Payload.(type) {
 	case map[string]interface{}:
-		event := messaging.NewEvent("channel.heartbeat", map[string]interface{}{
+		event := messaging.NewEvent("channel.heartbeat.received", map[string]interface{}{
 			"clientSent": action.Payload.(map[string]interface{})["clientSent"],
 			"serverSent": time.Now().UnixNano() / 1000000,
 		})

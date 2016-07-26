@@ -107,7 +107,6 @@ func (c *Channel) initializeChannel() error {
 	}
 
 	c.initializeWebApp()
-	c.initializeWebSocket()
 
 	l.Info(
 		"Channel initialized successfully.",
@@ -256,17 +255,6 @@ func (c *Channel) initializeWebApp() {
 
 	c.WebApp.Get("/healthcheck", HealthCheckHandler(c))
 	c.WebApp.Get("/", WebSocketHandler(c))
-}
-
-func (c *Channel) initializeWebSocket() {
-	//c.Logger.Debug("Initializing websocket...")
-	//c.WebApp.Config.Websocket.Endpoint = "/"
-	//ws := c.WebApp.Websocket // get the websocket server
-	//ws.OnConnection(func(socket iris.WebsocketConnection) {
-	//fmt.Println("got player connection")
-	//c.PubSub.RegisterPlayer(socket)
-	//})
-	//c.Logger.Info("Websocket initialized.")
 }
 
 //Start the channel

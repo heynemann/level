@@ -174,16 +174,24 @@ var _ = Describe("Channel", func() {
 				Expect(ev.Key).To(Equal("channel.session.started"))
 				Expect(ev.Payload.(map[string]interface{})["sessionID"]).NotTo(BeNil())
 
+				dt := time.Now().UnixNano()
+
 				for i := 0; i < 3; i++ {
 					err = conn.Send(messaging.NewAction("", "channel.heartbeat.ping", map[string]interface{}{
-						"clientSent": time.Now().UnixNano(),
+						"clientSent": dt,
 					}))
 					Expect(err).NotTo(HaveOccurred())
 				}
 				conn.WaitFor(3)
 
 				Expect(conn.Received).To(HaveLen(4))
-				//Expect(ev.Key).To(Equal("channel.heartbeat"))
+
+				for i := 1; i < 4; i++ {
+					ev := conn.Received[i]
+					Expect(ev.Key).To(Equal("channel.heartbeat.received"))
+					Expect(ev.Payload.(map[string]interface{})["clientSent"]).To(BeNumerically(">", 0))
+					Expect(ev.Payload.(map[string]interface{})["serverSent"]).To(BeNumerically(">", 0))
+				}
 			})
 		})
 	})
