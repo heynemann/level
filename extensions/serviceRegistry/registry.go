@@ -17,10 +17,30 @@ import (
 
 //Service describes a service
 type Service interface {
-	//Initialize(*PubSub)
-	GetServiceID() string
-	GetServiceInfo() (string, bool)
+	GetServiceDetails() *ServiceDetails
 	HandleAction(string, *messaging.Action) (*messaging.Event, error)
+}
+
+//ServiceDetails identify a service
+type ServiceDetails struct {
+	ServiceID   string
+	Namespace   string
+	Name        string
+	Description string
+	Version     string
+	Sticky      bool
+}
+
+//NewServiceDetails returns a new service details instance
+func NewServiceDetails(serviceID, namespace, name, description, version string, sticky bool) *ServiceDetails {
+	return &ServiceDetails{
+		ServiceID:   serviceID,
+		Namespace:   namespace,
+		Name:        name,
+		Description: description,
+		Version:     version,
+		Sticky:      sticky,
+	}
 }
 
 //ServiceRegistry is the registry where all services specify their properties
@@ -58,12 +78,12 @@ func (s *ServiceRegistry) Register(service Service) error {
 }
 
 func (s *ServiceRegistry) listenForMessages(service Service) {
-	serviceID := service.GetServiceID()
-	queue, sticky := service.GetServiceInfo()
-	if sticky {
-		queue = fmt.Sprintf("%s.%s", queue, serviceID)
+	details := service.GetServiceDetails()
+	var queue string
+	if details.Sticky {
+		queue = fmt.Sprintf("%s.%s", details.Namespace, details.ServiceID)
 	} else {
-		queue = fmt.Sprintf("%s.>", queue)
+		queue = fmt.Sprintf("%s.>", details.Namespace)
 	}
 
 	s.Client.QueueSubscribe(queue, "default", func(msg *nats.Msg) {

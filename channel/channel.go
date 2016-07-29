@@ -262,3 +262,8 @@ func (c *Channel) Start() {
 	server := fmt.Sprintf("%s:%d", c.ServerOptions.Host, c.ServerOptions.Port)
 	c.WebApp.Listen(server)
 }
+
+//Close the channel
+func (c *Channel) Close() {
+	c.WebApp.Close()
+}

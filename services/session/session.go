@@ -13,20 +13,21 @@ import (
 	"github.com/heynemann/level/extensions/serviceRegistry"
 	"github.com/heynemann/level/extensions/sessionManager"
 	"github.com/heynemann/level/messaging"
+	"github.com/heynemann/level/metadata"
 )
 
 //Service represents the heartbeat service
 type Service struct {
-	ID             string
+	ServiceID      string
 	Registry       *registry.ServiceRegistry
 	SessionManager sessionManager.SessionManager
 }
 
 //NewSessionService creates a new instance of a heartbeat service
-func NewSessionService(id string, serviceRegistry *registry.ServiceRegistry) (*Service, error) {
+func NewSessionService(serviceID string, serviceRegistry *registry.ServiceRegistry) (*Service, error) {
 	s := &Service{
-		ID:       id,
-		Registry: serviceRegistry,
+		ServiceID: serviceID,
+		Registry:  serviceRegistry,
 	}
 
 	err := s.Initialize()
@@ -37,14 +38,21 @@ func NewSessionService(id string, serviceRegistry *registry.ServiceRegistry) (*S
 	return s, nil
 }
 
-//GetServiceInfo return the namespace for the service and if it is sticky
-func (s *Service) GetServiceInfo() (string, bool) {
-	return "channel.session", false
+//GetServiceDetails ditto
+func (s *Service) GetServiceDetails() *registry.ServiceDetails {
+	return registry.NewServiceDetails(
+		s.ServiceID,
+		"channel.session",
+		"Session Manager",
+		"Manages the session for all players in all games",
+		metadata.VERSION,
+		false,
+	)
 }
 
 //GetServiceID returns the service ID for each instance of this service
 func (s *Service) GetServiceID() string {
-	return s.ID
+	return s.ServiceID
 }
 
 //HandleSessionRejoin happens when a player wants to rejoin the channel

@@ -14,25 +14,21 @@ import (
 	"github.com/heynemann/level/extensions/pubsub"
 	"github.com/heynemann/level/extensions/serviceRegistry"
 	"github.com/heynemann/level/messaging"
+	"github.com/heynemann/level/metadata"
 )
 
 //Service represents the heartbeat service
 type Service struct {
-	ID       string
-	Registry *registry.ServiceRegistry
-	PubSub   *pubsub.PubSub
+	ServiceID string
+	Registry  *registry.ServiceRegistry
+	PubSub    *pubsub.PubSub
 }
 
 //NewHeartbeatService creates a new instance of a heartbeat service
-func NewHeartbeatService(id string, serviceRegistry *registry.ServiceRegistry) (*Service, error) {
+func NewHeartbeatService(serviceID string, serviceRegistry *registry.ServiceRegistry) (*Service, error) {
 	s := &Service{
-		ID:       id,
-		Registry: serviceRegistry,
-	}
-
-	err := s.Initialize()
-	if err != nil {
-		return nil, err
+		ServiceID: serviceID,
+		Registry:  serviceRegistry,
 	}
 
 	return s, nil
@@ -40,18 +36,19 @@ func NewHeartbeatService(id string, serviceRegistry *registry.ServiceRegistry) (
 
 //GetServiceID returns the service ID for each instance of this service
 func (s *Service) GetServiceID() string {
-	return s.ID
+	return s.ServiceID
 }
 
-//Initialize the service - register it with the service registry
-func (s *Service) Initialize() error {
-	s.Registry.Register(s)
-	return nil
-}
-
-//GetServiceInfo return the namespace for the service and if it is sticky
-func (s *Service) GetServiceInfo() (string, bool) {
-	return "channel.heartbeat", false
+//GetServiceDetails ditto
+func (s *Service) GetServiceDetails() *registry.ServiceDetails {
+	return registry.NewServiceDetails(
+		s.ServiceID,
+		"channel.heartbeat",
+		"Heartbeat",
+		"Manages the session for all players in all games",
+		metadata.VERSION,
+		false,
+	)
 }
 
 //HandleAction handles a given action for an user
