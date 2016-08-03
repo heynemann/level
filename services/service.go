@@ -45,7 +45,7 @@ type Server struct {
 }
 
 //NewServer creates an configures a new server instance
-func NewServer(serv registry.Service) (*Server, error) {
+func NewServer(serv registry.Service, logger zap.Logger, configPath string) (*Server, error) {
 	var service Service
 	var ok bool
 	if service, ok = serv.(Service); !ok {
@@ -55,34 +55,51 @@ func NewServer(serv registry.Service) (*Server, error) {
 		)
 	}
 
-	s := &Server{Service: serv, ServerService: service}
-	s.Configure()
+	s := &Server{Service: serv, ServerService: service, Logger: logger, ConfigPath: configPath}
+	err := s.Configure()
+	if err != nil {
+		return nil, err
+	}
 
 	return s, nil
 }
 
 func (s *Server) initializeServiceRegistry() error {
+	natsURL := s.Config.GetString("services.nats.URL")
+	l := s.Logger.With(
+		zap.String("operation", "initializeServiceRegistry"),
+		zap.String("natsURL", natsURL),
+	)
+
+	l.Debug("Initializing registry...")
 	sr, err := registry.NewServiceRegistry(
-		s.Config.GetString("services.nats.URL"),
+		natsURL,
 		s.Logger,
 	)
 	if err != nil {
+		l.Error("Error initializing service registry.", zap.Error(err))
 		return err
 	}
+
+	l.Info("Service registry initialized successfully.")
 	s.ServiceRegistry = sr
+
+	l.Debug("Registering service...")
 	s.ServiceRegistry.Register(s.Service)
+	l.Info("Service registered successfully.")
 
 	return nil
 }
 
 //Configure the server
-func (s *Server) Configure() {
+func (s *Server) Configure() error {
 	s.Config = viper.New()
-	s.Logger = zap.NewJSON(zap.Level(logLevels[s.LogLevel]))
 	s.SetDefaultConfiguration()
 	s.ServerService.SetDefaultConfigurations(s.Config)
 
 	s.LoadConfiguration(s.ConfigPath)
+	err := s.initializeServiceRegistry()
+	return err
 }
 
 //SetDefaultConfiguration options
@@ -159,8 +176,8 @@ func getCommandFor(s *Server) *cobra.Command {
 }
 
 //Run a new Service
-func Run(serv registry.Service) error {
-	s, err := NewServer(serv)
+func Run(serv registry.Service, logger zap.Logger, configPath string) error {
+	s, err := NewServer(serv, logger, configPath)
 	if err != nil {
 		s.Logger.Error("Backend server finalized with error!", zap.Error(err))
 		os.Exit(-1)

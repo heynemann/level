@@ -171,6 +171,21 @@ func (m *MockLogger) Panic(message string, fields ...zap.Field) {
 	m.Log(zap.PanicLevel, message, fields...)
 }
 
+//PrettyPrint ditto
+func (m *MockLogger) PrettyPrint() {
+	available := []string{}
+	for _, message := range m.Messages {
+		available = append(available, fmt.Sprintf(
+			"\t[%s] \"%v\"\n\t\tFields:\n%s",
+			message["level"],
+			message["message"],
+			formatFields(message["fields"].([]zap.Field)),
+		))
+	}
+
+	fmt.Println(strings.Join(available, "\n"))
+}
+
 func testLogMessage(logger *MockLogger, level zap.Level, message string, fields ...interface{}) bool {
 	for _, msg := range logger.Messages {
 		if msg["type"] != "log" {

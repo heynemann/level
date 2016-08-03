@@ -78,7 +78,13 @@ func (s *ServiceRegistry) Register(service Service) error {
 }
 
 func (s *ServiceRegistry) listenForMessages(service Service) {
+	l := s.Logger.With(
+		zap.String("operation", "listenForMessages"),
+	)
+
+	l.Debug("Getting service details...")
 	details := service.GetServiceDetails()
+
 	var queue string
 	if details.Sticky {
 		queue = fmt.Sprintf("%s.%s", details.Namespace, details.ServiceID)
@@ -86,20 +92,40 @@ func (s *ServiceRegistry) listenForMessages(service Service) {
 		queue = fmt.Sprintf("%s.>", details.Namespace)
 	}
 
+	l.Debug(
+		"Service details retrieved.",
+		zap.Bool("sticky", details.Sticky),
+		zap.String("queue", queue),
+	)
+
 	s.Client.QueueSubscribe(queue, "default", func(msg *nats.Msg) {
 		action := messaging.Action{}
 		action.UnmarshalJSON(msg.Data)
+
+		la := l.With(
+			zap.String("actionKey", action.Key),
+			zap.String("action", string(msg.Data)),
+		)
+		la.Debug("Received action.")
+
+		la.Debug("Handling action...")
 		event, err := service.HandleAction(msg.Subject, &action)
 		if err != nil {
-			fmt.Println("Error Handling action: ", err)
+			la.Error("Error handling action.", zap.Error(err))
 			return
 		}
+		if event == nil {
+			la.Warn("Message handling did not return an event.")
+			return
+		}
+		l.Debug("Action handled.")
 		eventJSON, err := event.MarshalJSON()
 		if err != nil {
-			fmt.Println("Error marshalling event: ", err)
+			la.Error("Error marshaling event.", zap.Error(err))
 			return
 		}
 		s.Client.Publish(msg.Reply, eventJSON)
+		la.Debug("Published event successfully.", zap.String("replyQueue", msg.Reply))
 	})
 }
 

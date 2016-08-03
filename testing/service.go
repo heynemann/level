@@ -18,12 +18,15 @@ import (
 )
 
 //RunService will run a service and a channel on the default port.
-func RunService(channelPort int, service registry.Service, logger zap.Logger) (*channel.Channel, *service.Server, error) {
-	channel, err := RunChannelOnPort(channelPort, logger)
+func RunService(channelPort int, service registry.Service, logger zap.Logger, configPath string) (*channel.Channel, *service.Server, error) {
+	options := channel.DefaultOptions()
+	options.ConfigFile = configPath
+
+	channel, err := RunChannelWithOptions(options, logger)
 	if err != nil {
 		return nil, nil, err
 	}
-	server, err := StartService(service)
+	server, err := StartService(service, logger, configPath)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -32,13 +35,22 @@ func RunService(channelPort int, service registry.Service, logger zap.Logger) (*
 }
 
 //StartService and listen in goroutine
-func StartService(serv registry.Service) (*service.Server, error) {
-	server, err := service.NewServer(serv)
+func StartService(serv registry.Service, logger zap.Logger, configPath string) (*service.Server, error) {
+	details := serv.GetServiceDetails()
+	l := logger.With(
+		zap.String("serverName", details.Name),
+		zap.String("serverDescription", details.Description),
+		zap.String("serverVersion", details.Version),
+		zap.String("serverID", details.ServiceID),
+	)
+
+	server, err := service.NewServer(serv, l, configPath)
 	if err != nil {
 		return nil, err
 	}
 
 	go func() {
+		server.Logger.Debug("Running backend server")
 		server.Listen()
 	}()
 
