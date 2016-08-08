@@ -20,7 +20,8 @@ import (
 
 //GameplayService for tic-tac-toe
 type GameplayService struct {
-	ServiceID string
+	ServiceID  string
+	RandomSeed int64
 }
 
 //GetServiceID for this service
@@ -33,19 +34,32 @@ func (s *GameplayService) HandleAction(subject string, action *messaging.Action)
 	switch action.Key {
 	case "tictactoe.gameplay.start":
 		return s.handleMatchmaking(action)
+	case "tictactoe.gameplay.move":
+		return s.handleMove(action)
 	default:
 		return nil, fmt.Errorf("Cannot process action identified by: %s", action.Key)
 	}
 }
 
 func (s *GameplayService) handleMatchmaking(action *messaging.Action) (*messaging.Event, error) {
+	game := NewGame(
+		true,
+		action.SessionID,
+		"",
+		uuid.NewV4().String(),
+	)
+
 	return messaging.NewEvent(
 		"tictactoe.gameplay.started",
 		map[string]interface{}{
-			"gameID":   uuid.NewV4().String(),
+			"gameID":   game.GameID,
 			"opponent": "bot",
 		},
 	), nil
+}
+
+func (s *GameplayService) handleMove(action *messaging.Action) (*messaging.Event, error) {
+	return nil, nil
 }
 
 //SetServerFlags adds flags to when this service is run
