@@ -198,6 +198,34 @@ func (tc *TestConnection) WaitFor(messages int, to ...time.Duration) error {
 	}
 }
 
+//WaitForEvent to come
+func (tc *TestConnection) WaitForEvent(eventKey string, to ...time.Duration) (*messaging.Event, error) {
+	timeout := 50 * time.Millisecond
+	if to != nil && len(to) == 1 {
+		timeout = to[0]
+	}
+
+	start := time.Now()
+
+	for {
+		if time.Now().Sub(start) > timeout {
+			return nil, fmt.Errorf("Timed out waiting for Event %s to come in.", eventKey)
+		}
+
+		var foundEvent *messaging.Event
+		for _, event := range tc.Received {
+			if event.Key == eventKey {
+				foundEvent = event
+			}
+		}
+		if foundEvent != nil {
+			return foundEvent, nil
+		}
+
+		time.Sleep(5 * time.Millisecond)
+	}
+}
+
 //Receive the next event
 func (tc *TestConnection) Receive(to ...time.Duration) (*messaging.Event, error) {
 	c := tc.ws

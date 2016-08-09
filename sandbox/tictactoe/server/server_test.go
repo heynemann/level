@@ -8,8 +8,8 @@
 package tictactoe_test
 
 import (
+	"fmt"
 	"math/rand"
-	"time"
 
 	"github.com/heynemann/level/sandbox/tictactoe/server"
 	. "github.com/heynemann/level/testing"
@@ -35,71 +35,54 @@ var _ = Describe("TicTacToeServer", func() {
 	Describe("Connecting to the Game", func() {
 		It("should send and receive heartbeat", func() {
 			s := tictactoe.NewGameplayService(uuid.NewV4().String())
-			channel, service, err := RunService(7575, s, logger, "../../../config/test.yaml")
+			channel, service, conn, err := GetTestClient(7575, s, logger, "../../../config/test.yaml")
 			Expect(err).NotTo(HaveOccurred())
 			defer channel.Close()
 			defer service.Close()
-
-			conn, err := NewChannelTestConnection(channel)
 			defer conn.Close()
-			Expect(err).NotTo(HaveOccurred())
 
-			conn.WaitFor(1)
-			Expect(conn).To(HaveEvent("channel.session.started"))
-			Expect(conn.Received).To(HaveLen(1))
-			Expect(conn.Received[0]).To(HavePayload("sessionID"))
+			ev, err := conn.WaitForEvent("channel.session.started")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(ev).To(HavePayload("sessionID"))
 
 			Expect(conn.SessionID).NotTo(BeNil())
 		})
 
 		It("should send start game and receive match", func() {
 			s := tictactoe.NewGameplayService(uuid.NewV4().String())
-			channel, service, err := RunService(7575, s, logger, "../../../config/test.yaml")
+			channel, service, conn, err := GetTestClient(7575, s, logger, "../../../config/test.yaml")
 			Expect(err).NotTo(HaveOccurred())
 			defer channel.Close()
 			defer service.Close()
-
-			conn, err := NewChannelTestConnection(channel)
 			defer conn.Close()
-			Expect(err).NotTo(HaveOccurred())
 
-			conn.WaitFor(1)
-			Expect(conn).To(HaveEvent("channel.session.started"))
+			ev, err := conn.WaitForEvent("channel.session.started")
+			Expect(err).NotTo(HaveOccurred())
 
 			conn.SendAction(
 				"tictactoe.gameplay.start", map[string]interface{}{},
 			)
-
-			conn.WaitFor(1)
-			time.Sleep(5 * time.Millisecond)
-			Expect(conn).To(HaveEvent("tictactoe.gameplay.started"))
-			Expect(conn.Received).To(HaveLen(2))
-			Expect(conn.Received[1]).To(HavePayload("gameID"))
-			Expect(conn.Received[1]).To(HavePayloadLike("opponent", "bot"))
+			ev, err = conn.WaitForEvent("tictactoe.gameplay.started")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(ev).To(HavePayload("gameID"))
+			Expect(ev).To(HavePayloadLike("opponent", "bot"))
 		})
 
 		It("should play with bot", func() {
 			rand.Seed(12345678)
 			s := tictactoe.NewGameplayService(uuid.NewV4().String())
-			channel, service, err := RunService(7575, s, logger, "../../../config/test.yaml")
+			channel, service, conn, err := GetTestClient(7575, s, logger, "../../../config/test.yaml")
 			Expect(err).NotTo(HaveOccurred())
 			defer channel.Close()
 			defer service.Close()
-
-			conn, err := NewChannelTestConnection(channel)
 			defer conn.Close()
+
+			conn.WaitForEvent("channel.session.started")
+			conn.SendAction("tictactoe.gameplay.start", map[string]interface{}{})
+			ev, err := conn.WaitForEvent("tictactoe.gameplay.started")
 			Expect(err).NotTo(HaveOccurred())
 
-			conn.WaitFor(1)
-			Expect(conn).To(HaveEvent("channel.session.started"))
-
-			conn.SendAction("tictactoe.gameplay.start", map[string]interface{}{})
-
-			conn.WaitFor(1)
-			time.Sleep(5 * time.Millisecond)
-			Expect(conn).To(HaveEvent("tictactoe.gameplay.started"))
-
-			gameData := conn.Received[len(conn.Received)-1].Payload.(map[string]interface{})
+			gameData := ev.Payload.(map[string]interface{})
 			gameID := gameData["gameID"].(string)
 
 			conn.SendAction("tictactoe.gameplay.move", map[string]interface{}{
@@ -108,26 +91,72 @@ var _ = Describe("TicTacToeServer", func() {
 				"posX":   1,
 			})
 
-			conn.WaitFor(1)
-			time.Sleep(5 * time.Millisecond)
-			Expect(conn).To(HaveEvent("tictactoe.gameplay.status"))
-			Expect(conn.Received).To(HaveLen(3))
-			Expect(conn.Received[2]).To(HavePayload("gameID"))
-			Expect(conn.Received[2]).To(HavePayload("board"))
+			ev, err = conn.WaitForEvent("tictactoe.gameplay.status")
+			Expect(err).NotTo(HaveOccurred())
 
-			gameData = conn.Received[len(conn.Received)-1].Payload.(map[string]interface{})
+			Expect(ev).To(HavePayload("gameID"))
+			Expect(ev).To(HavePayload("board"))
+
+			gameData = ev.Payload.(map[string]interface{})
 			board := gameData["board"].([]interface{})
 			Expect(board[1].([]interface{})[1]).To(BeEquivalentTo(1))
+			Expect(board[2].([]interface{})[0]).To(BeEquivalentTo(2))
 
 			for i := 0; i < 3; i++ {
 				row := board[i].([]interface{})
 				for j := 0; j < 3; j++ {
-					if i == 1 && j == 1 {
+					By(fmt.Sprintf("Comparing X %d, Y %d", i, j))
+					if (i == 1 && j == 1) || (i == 2 && j == 0) {
 						continue
 					}
 					Expect(row[j]).To(BeEquivalentTo(0))
 				}
 			}
+		})
+
+		It("should win", func() {
+			rand.Seed(12345678)
+			s := tictactoe.NewGameplayService(uuid.NewV4().String())
+			channel, service, conn, err := GetTestClient(7575, s, logger, "../../../config/test.yaml")
+			Expect(err).NotTo(HaveOccurred())
+			defer channel.Close()
+			defer service.Close()
+			defer conn.Close()
+
+			conn.WaitForEvent("channel.session.started")
+			conn.SendAction("tictactoe.gameplay.start", map[string]interface{}{})
+			ev, err := conn.WaitForEvent("tictactoe.gameplay.started")
+			Expect(err).NotTo(HaveOccurred())
+
+			gameData := ev.Payload.(map[string]interface{})
+			gameID := gameData["gameID"].(string)
+
+			conn.SendAction("tictactoe.gameplay.move", map[string]interface{}{
+				"gameID": gameID,
+				"posX":   0,
+				"posY":   0,
+			})
+			_, err = conn.WaitForEvent("tictactoe.gameplay.status")
+			Expect(err).NotTo(HaveOccurred())
+
+			conn.SendAction("tictactoe.gameplay.move", map[string]interface{}{
+				"gameID": gameID,
+				"posX":   0,
+				"posY":   1,
+			})
+			_, err = conn.WaitForEvent("tictactoe.gameplay.status")
+			Expect(err).NotTo(HaveOccurred())
+
+			conn.SendAction("tictactoe.gameplay.move", map[string]interface{}{
+				"gameID": gameID,
+				"posX":   0,
+				"posY":   2,
+			})
+
+			ev, err = conn.WaitForEvent("tictactoe.gameplay.result")
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(s.Games).To(HaveLen(0))
 		})
 	})
 })

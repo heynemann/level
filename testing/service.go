@@ -17,6 +17,21 @@ import (
 	"github.com/uber-go/zap"
 )
 
+//GetTestClient returns a test client connected to a channel and a service.
+func GetTestClient(port int, service registry.Service, logger zap.Logger, configPath string) (*channel.Channel, *service.Server, *TestConnection, error) {
+	channel, serv, err := RunService(7575, service, logger, "../../../config/test.yaml")
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	conn, err := NewChannelTestConnection(channel)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	return channel, serv, conn, nil
+}
+
 //RunService will run a service and a channel on the default port.
 func RunService(channelPort int, service registry.Service, logger zap.Logger, configPath string) (*channel.Channel, *service.Server, error) {
 	options := channel.DefaultOptions()

@@ -12,6 +12,7 @@ import (
 	"math/rand"
 )
 
+//Game of tic-tac-toe
 type Game struct {
 	AgainstBot       bool
 	GameID           string
@@ -20,6 +21,7 @@ type Game struct {
 	Board            *Board
 }
 
+//NewGame with the specified players
 func NewGame(againstBot bool, gameID, player1SessionID, player2SessionID string) *Game {
 	board := &Board{
 		Pieces: [][]int{
@@ -39,11 +41,13 @@ func NewGame(againstBot bool, gameID, player1SessionID, player2SessionID string)
 	}
 }
 
+//Board represents a 3x3 game of tic-tac-toe
 type Board struct {
 	CurrentPlayer int
 	Pieces        [][]int
 }
 
+//Winner indicates whether there's a winner for this board?
 func (b *Board) Winner() int {
 	pieces := b.Pieces
 
@@ -72,14 +76,17 @@ func (b *Board) Winner() int {
 	return 0
 }
 
+//IsGameOver for this board?
 func (b *Board) IsGameOver() bool {
 	return b.Winner() != 0 || b.IsDraw()
 }
 
+//IsDraw for this board?
 func (b *Board) IsDraw() bool {
 	return b.Winner() == 0 && b.GetAvailableMoves() == 0
 }
 
+//GetAvailableMoves in the board
 func (b *Board) GetAvailableMoves() int {
 	pieces := b.Pieces
 	moves := 0
@@ -94,6 +101,7 @@ func (b *Board) GetAvailableMoves() int {
 	return moves
 }
 
+//GetBotMove for next valid position
 func (b *Board) GetBotMove() (int, int) {
 	pieces := b.Pieces
 
@@ -122,6 +130,7 @@ func (b *Board) validateMove(player, posX, posY int) (string, bool) {
 	return "", true
 }
 
+//TickAs a specific player in a specific position.
 func (b *Board) TickAs(player, posX, posY int) error {
 	msg, isValid := b.validateMove(player, posX, posY)
 	if !isValid {

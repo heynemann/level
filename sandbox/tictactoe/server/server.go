@@ -54,9 +54,9 @@ func (s *GameplayService) HandleAction(subject string, action *messaging.Action)
 func (s *GameplayService) handleMatchmaking(action *messaging.Action) (*messaging.Event, error) {
 	game := NewGame(
 		true,
-		action.SessionID,
-		"",
 		uuid.NewV4().String(),
+		action.SessionID,
+		"bot",
 	)
 
 	s.Games[game.GameID] = game
@@ -79,7 +79,14 @@ func (s *GameplayService) handleMove(action *messaging.Action) (*messaging.Event
 	gameID := actionData["gameID"].(string)
 	game, ok := s.Games[gameID]
 	if !ok {
-		return nil, fmt.Errorf("Failed to retrieve game with id %s", gameID)
+		err := fmt.Errorf("Failed to retrieve game with id %s", gameID)
+		return messaging.NewEvent(
+			"tictactoe.gameplay.invalid-move",
+			map[string]interface{}{
+				"gameID": game.GameID,
+				"error":  err.Error(),
+			},
+		), nil
 	}
 
 	b := game.Board
@@ -91,7 +98,43 @@ func (s *GameplayService) handleMove(action *messaging.Action) (*messaging.Event
 
 	err := b.TickAs(player, asInt(actionData["posX"]), asInt(actionData["posY"]))
 	if err != nil {
-		return nil, err
+		return messaging.NewEvent(
+			"tictactoe.gameplay.invalid-move",
+			map[string]interface{}{
+				"gameID": game.GameID,
+				"error":  err.Error(),
+			},
+		), nil
+	}
+
+	if b.IsGameOver() {
+		//Remove the game from the current games
+		delete(s.Games, gameID)
+
+		if b.IsDraw() {
+			return messaging.NewEvent(
+				"tictactoe.gameplay.result",
+				map[string]interface{}{
+					"gameID": game.GameID,
+					"board":  b.Pieces,
+					"winner": nil,
+				},
+			), nil
+		}
+
+		return messaging.NewEvent(
+			"tictactoe.gameplay.result",
+			map[string]interface{}{
+				"gameID": game.GameID,
+				"board":  b.Pieces,
+				"winner": b.Winner(),
+			},
+		), nil
+	}
+
+	if game.AgainstBot {
+		posX, posY := b.GetBotMove()
+		b.TickAs(2, posX, posY)
 	}
 
 	return messaging.NewEvent(
