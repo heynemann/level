@@ -107,28 +107,33 @@ func (b *Board) GetBotMove() (int, int) {
 	}
 }
 
-func (b *Board) validateMove(player, posX, posY int) bool {
+func (b *Board) validateMove(player, posX, posY int) (string, bool) {
 	if b.CurrentPlayer != player {
-		fmt.Println("Not player's move!!!")
-		return false
+		return "Not player's move!!!", false
 	}
 	if b.Pieces[posX][posY] != 0 {
-		fmt.Printf("Position %d:%d is not empty!\n", posX, posY)
-		return false
+		return fmt.Sprintf("Position %d:%d is not empty!\n", posX, posY), false
 	}
 
 	if b.IsGameOver() {
-		fmt.Println("Game over!!!")
-		return false
+		return "Game over!!!", false
 	}
-	return true
+
+	return "", true
 }
 
-func (b *Board) TickAs(player, posX, posY int) {
+func (b *Board) TickAs(player, posX, posY int) error {
+	msg, isValid := b.validateMove(player, posX, posY)
+	if !isValid {
+		return fmt.Errorf(msg)
+	}
+
 	if player == 1 {
 		b.CurrentPlayer = 2
 	} else {
 		b.CurrentPlayer = 1
 	}
 	b.Pieces[posX][posY] = player
+
+	return nil
 }

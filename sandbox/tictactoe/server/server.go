@@ -20,8 +20,18 @@ import (
 
 //GameplayService for tic-tac-toe
 type GameplayService struct {
-	ServiceID  string
-	RandomSeed int64
+	ServiceID string
+	Games     map[string]*Game
+}
+
+//NewGameplayService returns a configured gameplay service.
+func NewGameplayService(serviceID string) *GameplayService {
+	service := &GameplayService{
+		ServiceID: serviceID,
+		Games:     map[string]*Game{},
+	}
+
+	return service
 }
 
 //GetServiceID for this service
@@ -49,6 +59,8 @@ func (s *GameplayService) handleMatchmaking(action *messaging.Action) (*messagin
 		uuid.NewV4().String(),
 	)
 
+	s.Games[game.GameID] = game
+
 	return messaging.NewEvent(
 		"tictactoe.gameplay.started",
 		map[string]interface{}{
@@ -58,8 +70,37 @@ func (s *GameplayService) handleMatchmaking(action *messaging.Action) (*messagin
 	), nil
 }
 
+func asInt(value interface{}) int {
+	return int(value.(float64))
+}
+
 func (s *GameplayService) handleMove(action *messaging.Action) (*messaging.Event, error) {
-	return nil, nil
+	actionData := action.Payload.(map[string]interface{})
+	gameID := actionData["gameID"].(string)
+	game, ok := s.Games[gameID]
+	if !ok {
+		return nil, fmt.Errorf("Failed to retrieve game with id %s", gameID)
+	}
+
+	b := game.Board
+
+	player := 1
+	if action.SessionID == game.Player2SessionID {
+		player = 2
+	}
+
+	err := b.TickAs(player, asInt(actionData["posX"]), asInt(actionData["posY"]))
+	if err != nil {
+		return nil, err
+	}
+
+	return messaging.NewEvent(
+		"tictactoe.gameplay.status",
+		map[string]interface{}{
+			"gameID": game.GameID,
+			"board":  b.Pieces,
+		},
+	), nil
 }
 
 //SetServerFlags adds flags to when this service is run

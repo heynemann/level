@@ -8,6 +8,7 @@
 package tictactoe_test
 
 import (
+	"math/rand"
 	"time"
 
 	"github.com/heynemann/level/sandbox/tictactoe/server"
@@ -33,9 +34,7 @@ var _ = Describe("TicTacToeServer", func() {
 
 	Describe("Connecting to the Game", func() {
 		It("should send and receive heartbeat", func() {
-			s := &tictactoe.GameplayService{
-				ServiceID: uuid.NewV4().String(),
-			}
+			s := tictactoe.NewGameplayService(uuid.NewV4().String())
 			channel, service, err := RunService(7575, s, logger, "../../../config/test.yaml")
 			Expect(err).NotTo(HaveOccurred())
 			defer channel.Close()
@@ -54,9 +53,7 @@ var _ = Describe("TicTacToeServer", func() {
 		})
 
 		It("should send start game and receive match", func() {
-			s := &tictactoe.GameplayService{
-				ServiceID: uuid.NewV4().String(),
-			}
+			s := tictactoe.NewGameplayService(uuid.NewV4().String())
 			channel, service, err := RunService(7575, s, logger, "../../../config/test.yaml")
 			Expect(err).NotTo(HaveOccurred())
 			defer channel.Close()
@@ -82,10 +79,8 @@ var _ = Describe("TicTacToeServer", func() {
 		})
 
 		It("should play with bot", func() {
-			s := &tictactoe.GameplayService{
-				RandomSeed: 12345678,
-				ServiceID:  uuid.NewV4().String(),
-			}
+			rand.Seed(12345678)
+			s := tictactoe.NewGameplayService(uuid.NewV4().String())
 			channel, service, err := RunService(7575, s, logger, "../../../config/test.yaml")
 			Expect(err).NotTo(HaveOccurred())
 			defer channel.Close()
@@ -117,16 +112,20 @@ var _ = Describe("TicTacToeServer", func() {
 			time.Sleep(5 * time.Millisecond)
 			Expect(conn).To(HaveEvent("tictactoe.gameplay.status"))
 			Expect(conn.Received).To(HaveLen(3))
-			Expect(conn.Received[1]).To(HavePayload("gameID"))
-			Expect(conn.Received[1]).To(HavePayload("board"))
+			Expect(conn.Received[2]).To(HavePayload("gameID"))
+			Expect(conn.Received[2]).To(HavePayload("board"))
 
 			gameData = conn.Received[len(conn.Received)-1].Payload.(map[string]interface{})
-			board := gameData["board"].([][]int)
-			Expect(board[1][1]).To(Equal(1))
+			board := gameData["board"].([]interface{})
+			Expect(board[1].([]interface{})[1]).To(BeEquivalentTo(1))
 
 			for i := 0; i < 3; i++ {
-				for j := 0; i < 3; i++ {
-					Expect(board[i][j]).To(Equal(0))
+				row := board[i].([]interface{})
+				for j := 0; j < 3; j++ {
+					if i == 1 && j == 1 {
+						continue
+					}
+					Expect(row[j]).To(BeEquivalentTo(0))
 				}
 			}
 		})
