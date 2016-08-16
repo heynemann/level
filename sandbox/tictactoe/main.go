@@ -11,11 +11,13 @@ import (
 	"github.com/heynemann/level/sandbox/tictactoe/server"
 	"github.com/heynemann/level/services"
 	"github.com/satori/go.uuid"
+	"github.com/uber-go/zap"
 )
 
 func main() {
 	serv := &tictactoe.GameplayService{
 		ServiceID: uuid.NewV4().String(),
 	}
-	service.Run(serv)
+	logger := zap.NewJSON(zap.InfoLevel)
+	service.Run(serv, logger, "../../config/default.yaml")
 }

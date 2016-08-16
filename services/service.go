@@ -184,7 +184,7 @@ func RunMultipleServices(logger zap.Logger, configPath string, services ...regis
 
 	s, err := NewServer(serv, logger, configPath)
 	if err != nil {
-		s.Logger.Error("Backend server finalized with error!", zap.Error(err))
+		logger.Error("Backend server finalized with error!", zap.Error(err))
 		os.Exit(-1)
 	}
 
