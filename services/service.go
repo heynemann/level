@@ -64,33 +64,6 @@ func NewServer(serv registry.Service, logger zap.Logger, configPath string) (*Se
 	return s, nil
 }
 
-func (s *Server) initializeServiceRegistry() error {
-	natsURL := s.Config.GetString("services.nats.URL")
-	l := s.Logger.With(
-		zap.String("operation", "initializeServiceRegistry"),
-		zap.String("natsURL", natsURL),
-	)
-
-	l.Debug("Initializing registry...")
-	sr, err := registry.NewServiceRegistry(
-		natsURL,
-		s.Logger,
-	)
-	if err != nil {
-		l.Error("Error initializing service registry.", zap.Error(err))
-		return err
-	}
-
-	l.Info("Service registry initialized successfully.")
-	s.ServiceRegistry = sr
-
-	l.Debug("Registering service...")
-	s.ServiceRegistry.Register(s.Service)
-	l.Info("Service registered successfully.")
-
-	return nil
-}
-
 //Configure the server
 func (s *Server) Configure() error {
 	s.Config = viper.New()
@@ -125,6 +98,33 @@ func (s *Server) LoadConfiguration(configPath string) {
 	if err := s.Config.ReadInConfig(); err == nil {
 		s.Logger.Info("Loaded configuration file.", zap.String("configPath", s.Config.ConfigFileUsed()))
 	}
+}
+
+func (s *Server) initializeServiceRegistry() error {
+	natsURL := s.Config.GetString("services.nats.URL")
+	l := s.Logger.With(
+		zap.String("operation", "initializeServiceRegistry"),
+		zap.String("natsURL", natsURL),
+	)
+
+	l.Debug("Initializing registry...")
+	sr, err := registry.NewServiceRegistry(
+		natsURL,
+		s.Logger,
+	)
+	if err != nil {
+		l.Error("Error initializing service registry.", zap.Error(err))
+		return err
+	}
+
+	l.Info("Service registry initialized successfully.")
+	s.ServiceRegistry = sr
+
+	l.Debug("Registering service...")
+	s.ServiceRegistry.Register(s.Service)
+	l.Info("Service registered successfully.")
+
+	return nil
 }
 
 //Listen to incoming messages
