@@ -95,9 +95,10 @@ func (s *Server) LoadConfiguration(configPath string) {
 	s.Config.AutomaticEnv() // read in environment variables that match
 
 	// If a config file is found, read it in.
-	if err := s.Config.ReadInConfig(); err == nil {
-		s.Logger.Info("Loaded configuration file.", zap.String("configPath", s.Config.ConfigFileUsed()))
+	if err := s.Config.ReadInConfig(); err != nil {
+		s.Logger.Error("Could not load configuration file.", zap.String("configPath", configPath), zap.Error(err))
 	}
+	s.Logger.Info("Loaded configuration file.", zap.String("configPath", s.Config.ConfigFileUsed()))
 }
 
 func (s *Server) initializeServiceRegistry() error {
