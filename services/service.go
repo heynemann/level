@@ -175,12 +175,21 @@ func getCommandFor(s *Server) *cobra.Command {
 	}
 }
 
-//Run a new Service
-func Run(serv registry.Service, logger zap.Logger, configPath string) error {
+//RunMultipleServices in a single server
+func RunMultipleServices(logger zap.Logger, configPath string, services ...registry.Service) error {
+	if len(services) == 0 {
+		return fmt.Errorf("Can't configure server with no services.")
+	}
+	serv := services[0]
+
 	s, err := NewServer(serv, logger, configPath)
 	if err != nil {
 		s.Logger.Error("Backend server finalized with error!", zap.Error(err))
 		os.Exit(-1)
+	}
+
+	for i := 1; i < len(services); i++ {
+		s.ServiceRegistry.Register(services[i])
 	}
 
 	cmd := getCommandFor(s)
@@ -190,4 +199,9 @@ func Run(serv registry.Service, logger zap.Logger, configPath string) error {
 	}
 
 	return nil
+}
+
+//Run a new Service
+func Run(serv registry.Service, logger zap.Logger, configPath string) error {
+	return RunMultipleServices(logger, configPath, serv)
 }
