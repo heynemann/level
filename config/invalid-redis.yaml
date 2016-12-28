@@ -1,7 +1,0 @@
-channel:
-  services:
-    redis:
-      host: localhost
-      port: 9876
-    nats:
-      URL: nats://invalid-server:9876
