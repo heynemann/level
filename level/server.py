@@ -86,30 +86,18 @@ async def run_server(context):
     application = await get_application(context)
     server = HTTPServer(application)
 
-    if context.server.fd is not None:
-        fd_number = get_as_integer(context.server.fd)
-        if fd_number is None:
-            with open(context.server.fd, 'r') as sock:
-                fd_number = sock.fileno()
-
-        sock = socket.fromfd(fd_number,
-                             socket.AF_INET | socket.AF_INET6,
-                             socket.SOCK_STREAM)
-        server.add_socket(sock)
-    else:
-        server.bind(context.server.port, context.server.host)
+    server.bind(context.server.port, context.server.host)
 
     server.start(1)
 
 
 def run(server_parameters):
     config = get_config(server_parameters.config_path)
-    validate_config(config, server_parameters)
-
     configure_log(config, server_parameters.log_level.upper())
     importer = get_importer(config)
 
     with get_context(server_parameters, config, importer) as context:
+        validate_config(context)
         logging.info('level running at %s:%d' % (context.server.host, context.server.port))
         asyncio.ensure_future(run_server(context), loop=server_parameters.ioloop)
         asyncio.get_event_loop().run_forever()
