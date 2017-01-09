@@ -8,7 +8,7 @@
 language: python
 
 services:
-  - redis-server
+    - redis-server
 
 python:
     - "3.6"
@@ -20,3 +20,6 @@ install:
 script:
     # run tests
     - make test
+
+after_success:
+    - coveralls
