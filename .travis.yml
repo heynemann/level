@@ -7,8 +7,11 @@
 
 language: python
 
+services:
+  - redis-server
+
 python:
-    - "3.4"
+    - "3.6"
 
 install:
     # install python requirements
