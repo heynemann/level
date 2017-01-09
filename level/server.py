@@ -12,7 +12,6 @@
 import logging
 import logging.config
 import os
-import socket
 from os.path import expanduser, dirname, join
 import asyncio
 
@@ -66,7 +65,7 @@ def get_importer(config):
     return importer
 
 
-def validate_config(config, server_parameters):
+def validate_config(context):
     pass
 
 
