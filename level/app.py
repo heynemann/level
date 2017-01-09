@@ -20,6 +20,8 @@ class LevelApp(Application):
         app = cls(context, [])
         await app.initialize()
         handlers = await app.get_handlers()
+        if context.server.debug:
+            kw['autoreload'] = True
         app = cls(context, handlers, *args, **kw)
         logging.debug('Application created successfully.')
         return app

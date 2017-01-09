@@ -48,5 +48,8 @@ kill_redis_test:
 tox:
 	@tox
 
+run: redis
+	@level up --debug -vvv
+
 #docs:
 	#@cd level/docs && make html && open _build/html/index.html

@@ -89,6 +89,7 @@ class LevelConfigController(CementBaseController):
 class LevelCliApp(CementApp):
     class Meta:
         label = 'level'
+        framework_logging = False
         handlers = [
             LevelController,
             LevelUpController,
