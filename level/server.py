@@ -14,9 +14,9 @@ import logging.config
 import os
 import socket
 from os.path import expanduser, dirname, join
+import asyncio
 
 from importer import Importer
-import tornado.ioloop
 from tornado.httpserver import HTTPServer
 
 from level.config import Config
@@ -52,7 +52,16 @@ def configure_log(config, log_level):
 
 def get_importer(config):
     importer = Importer()
-    importer.load()  # load all modules here
+    importer.load(
+        dict(key='service_classes', module_names=config.SERVICES, class_name='Service'),
+    )  # load all modules here
+
+    services = []
+    for service_class in importer.service_classes:
+        srv = service_class()
+        srv.name = service_class.__module__
+        services.append(srv)
+    importer.services = services
 
     return importer
 
@@ -69,11 +78,12 @@ def get_context(server_parameters, config, importer):
     )
 
 
-def get_application(context):
-    return context.importer.import_class(context.app_class)(context)
+async def get_application(context):
+    return await context.importer.import_class(context.app_class).create(context)
 
 
-def run_server(application, context):
+async def run_server(context):
+    application = await get_application(context)
     server = HTTPServer(application)
 
     if context.server.fd is not None:
@@ -100,8 +110,6 @@ def run(server_parameters):
     importer = get_importer(config)
 
     with get_context(server_parameters, config, importer) as context:
-        application = get_application(context)
-        run_server(application, context)
-
         logging.info('level running at %s:%d' % (context.server.host, context.server.port))
-        tornado.ioloop.IOLoop.instance().start()
+        asyncio.ensure_future(run_server(context), loop=server_parameters.ioloop)
+        asyncio.get_event_loop().run_forever()

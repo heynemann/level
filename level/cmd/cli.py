@@ -10,10 +10,12 @@
 
 import sys
 import signal
+import asyncio
 
 from cement.core.exc import CaughtSignal
 from cement.core.foundation import CementApp
 from cement.core.controller import CementBaseController, expose
+from tornado.platform.asyncio import AsyncIOMainLoop
 
 from level.context import ServerParameters
 from level.server import run
@@ -50,7 +52,9 @@ class LevelUpController(CementBaseController):
 
     @expose(help='Starts a configured level server.')
     def default(self):
+        AsyncIOMainLoop().install()
         params = ServerParameters(
+            ioloop=asyncio.get_event_loop(),
             host=self.app.pargs.bind,
             port=int(self.app.pargs.port),
             config_path=self.app.pargs.config,

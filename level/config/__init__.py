@@ -28,6 +28,12 @@ Config.define(
     'Custom app class to override LevelApp.'
 )
 
+Config.define(
+    'SERVICES', (
+        'level.services.healthcheck',
+    ), 'List of services to be used in this level server', 'Services'
+)
+
 
 def generate_config():
     config.generate_config()
