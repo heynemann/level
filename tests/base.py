@@ -8,7 +8,7 @@
 # http://www.opensource.org/licenses/MIT-license
 # Copyright (c) 2016, Bernardo Heynemann <heynemann@gmail.com>
 
-import asyncio
+import tornado.ioloop
 from unittest import TestCase as PythonTestCase
 
 
@@ -17,9 +17,8 @@ def async_case(f, *args, **kw):
         async def go():
             await f(*args, **kw)
 
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(None)
-        loop.run_until_complete(go())
+        loop = tornado.ioloop.IOLoop.instance()
+        loop.run_sync(go)
 
     handle_method.__name__ = f.__name__
     return handle_method

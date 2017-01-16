@@ -21,6 +21,7 @@ tests_require = [
     'ipdb',
     'coveralls',
     'sphinx',
+    'nose-focus',
 ]
 
 setup(
@@ -51,11 +52,11 @@ Level is a message-oriented gaming server.
         # remember to use 'package-name>=x.y.z,<x.(y+1).0' notation
         # (this way you get bugfixes but no breaking changes)
         'tornado>=4.4.2,<5.0.0',
-        'toredis>=0.1.2,<1.0.0',
+        'toredis-fork>=0.1.4,<1.0.0',
         'importer-lib>=0.2.0,<1.0.0',
         'cement>=2.10.2,<3.0.0',
         'derpconf>=0.8.1,<1.0.0',
-        'ujson',
+        'ujson>=1.35,<2.0',
     ],
     extras_require={
         'tests': tests_require,
