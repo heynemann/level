@@ -24,6 +24,18 @@ class PubSub:
         self.handlers = defaultdict(list)
         self.__handler_subscribed = {}
 
+    # Wrap redis operations in tasks
+    def __perform_async(self, method):
+        def perform(*arg, **kw):
+            return gen.Task(method, *arg, **kw)
+        return perform
+
+    # If method not found get redis command instead
+    def __getattr__(self, key):
+        if key in self.__dict__:
+            return super(PubSub, self).__getattr__(key)
+        return self.__perform_async(getattr(self.redis, key))
+
     def define_configuration_defaults(self):
         self.config.define('REDIS_HOST', 'localhost', 'Redis PubSub host', 'Redis Extension')
         self.config.define('REDIS_PORT', 6379, 'Redis PubSub port', 'Redis Extension')

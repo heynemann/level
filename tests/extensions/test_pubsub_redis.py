@@ -32,6 +32,13 @@ class RedisPubSubTestCase(TestCase):
         ps = PubSub(self.config)
         expect(ps).not_to_be_null()
 
+    def test_can_define_defaults(self):
+        conf = Config()
+        ps = PubSub(conf)
+        ps.define_configuration_defaults()
+        expect(conf.REDIS_HOST).to_equal('localhost')
+        expect(conf.REDIS_PORT).to_equal(6379)
+
     @async_case
     async def test_can_initialize(self):
         ps = PubSub(self.config)
@@ -49,6 +56,10 @@ class RedisPubSubTestCase(TestCase):
         expect(ps.redis).to_be_null()
         expect(ps.subs_closed).to_be_true()
         expect(ps.subs).to_be_null()
+
+        await ps.cleanup()
+        expect(ps.redis_closed).to_be_true()
+        expect(ps.subs_closed).to_be_true()
 
     @async_case
     async def test_can_subscribe_to_channel(self):
@@ -71,3 +82,35 @@ class RedisPubSubTestCase(TestCase):
 
         expect(received).to_include(chan)
         expect(received[chan]).to_be_like('qwe')
+
+    @async_case
+    async def test_can_subscribe_to_channel_twice(self):
+        ps = PubSub(self.config)
+        await ps.initialize()
+        expect(ps.redis).not_to_be_null()
+
+        received = {}
+
+        def on_message(chan, msg):
+            received[chan] = msg
+
+        chan = str(uuid4())
+        await ps.subscribe(chan, lambda chan, msg: '')
+        await ps.subscribe(chan, on_message)
+
+        await ps.publish(chan, 'qwe')
+
+        while chan not in received:
+            await gen.sleep(0.001)
+
+        expect(received).to_include(chan)
+        expect(received[chan]).to_be_like('qwe')
+
+    @async_case
+    async def test_redis_methods(self):
+        ps = PubSub(self.config)
+        await ps.initialize()
+
+        await ps.set('key', 'qwe')
+        res = await ps.get('key')
+        expect(res).to_equal('qwe')
