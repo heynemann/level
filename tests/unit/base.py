@@ -29,6 +29,7 @@ def async_case(f, *args, **kw):
 
 class TestCase(PythonTestCase):
     def setUp(self):
+        super(TestCase, self).setUp()
         self.io_loop = IOLoop()
         self.io_loop.make_current()
 
