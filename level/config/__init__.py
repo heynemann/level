@@ -25,8 +25,14 @@ Config.define(
 
 Config.define(
     'APP_CLASS', 'level.app.LevelApp',
-    'Custom app class to override LevelApp.'
+    'Custom app class to override LevelApp.', 'WebServer',
 )
+
+Config.define(
+    'WS_URL', '/ws',
+    'URL for Websocket Access', 'WebServer',
+)
+
 
 Config.define(
     'SERVICES', (

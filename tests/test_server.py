@@ -9,7 +9,6 @@
 # Copyright (c) 2016, Bernardo Heynemann <heynemann@gmail.com>
 
 import mock
-import asyncio
 
 from preggy import expect
 
@@ -30,10 +29,6 @@ from tests.base import TestCase, async_case
 
 
 class ServerTestCase(TestCase):
-    def setUp(self):
-        self.loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(None)
-
     def test_can_get_value_as_integer(self):
         expect(get_as_integer("1")).to_equal(1)
         expect(get_as_integer("a")).to_be_null()
@@ -91,7 +86,7 @@ class ServerTestCase(TestCase):
 
     @async_case
     async def test_get_application(self):
-        server_parameters = mock.Mock(ioloop=self.loop, app_class='level.app.LevelApp')
+        server_parameters = mock.Mock(ioloop=self.io_loop, app_class='level.app.LevelApp')
         conf = Config()
         importer = get_importer(conf)
         context = get_context(server_parameters, conf, importer)
@@ -103,7 +98,7 @@ class ServerTestCase(TestCase):
     @mock.patch.object(level.server, 'HTTPServer')
     @async_case
     async def test_can_run_server_with_default_params(self, server_mock):
-        server_parameters = mock.Mock(host='0.0.0.0', port=1234, ioloop=self.loop, fd=None, app_class='level.app.LevelApp')
+        server_parameters = mock.Mock(host='0.0.0.0', port=1234, ioloop=self.io_loop, fd=None, app_class='level.app.LevelApp')
         conf = Config()
         importer = get_importer(conf)
         context = get_context(server_parameters, conf, importer)

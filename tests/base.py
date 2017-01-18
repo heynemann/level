@@ -8,8 +8,11 @@
 # http://www.opensource.org/licenses/MIT-license
 # Copyright (c) 2016, Bernardo Heynemann <heynemann@gmail.com>
 
-import tornado.ioloop
 from unittest import TestCase as PythonTestCase
+
+from tornado.ioloop import IOLoop
+
+from level.testing import LevelTestCase
 
 
 def async_case(f, *args, **kw):
@@ -17,7 +20,7 @@ def async_case(f, *args, **kw):
         async def go():
             await f(*args, **kw)
 
-        loop = tornado.ioloop.IOLoop.instance()
+        loop = IOLoop.instance()
         loop.run_sync(go)
 
     handle_method.__name__ = f.__name__
@@ -25,4 +28,10 @@ def async_case(f, *args, **kw):
 
 
 class TestCase(PythonTestCase):
+    def setUp(self):
+        self.io_loop = IOLoop()
+        self.io_loop.make_current()
+
+
+class WebTestCase(LevelTestCase):
     pass
