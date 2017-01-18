@@ -12,20 +12,27 @@
 from uuid import uuid4
 
 import logging
-from tornado.web import Application
+from tornado.web import Application, asynchronous
 from tornado.websocket import WebSocketHandler
+from tornado.ioloop import IOLoop
 
 
 class WSHandler(WebSocketHandler):
+    def finish(self):
+        pass
+
+    @asynchronous
     async def open(self):
         self.user_id = uuid4()
-        self.app.handle_websocket_open(user_id)
+        await self.application.handle_websocket_open(self.user_id)
 
-    def on_message(self, message):
-        self.app.handle_websocket_message(self.user_id, message)
+    @asynchronous
+    async def on_message(self, message):
+        await self.application.handle_websocket_message(self.user_id, message)
 
-    def on_close(self):
-        self.app.handle_websocket_close(self.user_id)
+    @asynchronous
+    async def on_close(self):
+        await self.application.handle_websocket_close(self.user_id)
 
 
 class LevelApp(Application):
@@ -43,6 +50,7 @@ class LevelApp(Application):
 
     def __init__(self, context, handlers, *args, **kw):
         self.context = context
+        self.ioloop = IOLoop.instance()
         super(LevelApp, self).__init__(handlers, *args, **kw)
 
     async def initialize(self):
@@ -69,20 +77,35 @@ class LevelApp(Application):
         return tuple(handlers)
 
     async def handle_websocket_open(self, user_id):
-        await handle_websocket_operation('on_websocket_opened', user_id)
+        await self.handle_websocket_operation('core.connection.open', {
+            'type': 'core.connection.open',
+            'payload': {
+                'user_id': user_id,
+            }
+        })
 
     async def handle_websocket_close(self, user_id):
-        await handle_websocket_operation('on_websocket_closed', user_id)
+        await self.handle_websocket_operation('core.connection.close', {
+            'type': 'core.connection.close',
+            'payload': {
+                'user_id': user_id,
+            }
+        })
 
     async def handle_websocket_message(self, user_id, message):
-        await handle_websocket_operation('on_websocket_closed', user_id, message)
+        msg_type = message['type']
+        del message['type']
+        await self.handle_websocket_operation(msg_type, {
+            'type': msg_type,
+            'payload': message,
+        })
 
     async def handle_websocket_operation(self, method_name, *args, **kw):
         logging.debug(f'Handling {method_name} started...')
         for service in self.context.importer.services:
-            method = getattr(service, method_name, None)
+            method = getattr(service, 'on_message', None)
             if method is None:
-                logging.debug(f"Service {service.name} does not handle {method_name}. Skipping...")
+                logging.debug(f"Service {service.name} does not handle websocket messages. Skipping...")
                 continue
 
             logging.debug(f"Handling {method_name} in service {service.name}...")

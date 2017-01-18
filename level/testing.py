@@ -8,7 +8,10 @@
 # http://www.opensource.org/licenses/MIT-license
 # Copyright (c) 2016, Bernardo Heynemann <heynemann@gmail.com>
 
+from tornado import gen
 from tornado.testing import AsyncHTTPTestCase
+from tornado.httpclient import HTTPRequest
+from tornado.websocket import websocket_connect
 from importer import Importer
 
 from level.app import LevelApp
@@ -50,15 +53,27 @@ class LevelTestCase(AsyncHTTPTestCase):
         )
 
     def get_app(self):
-        server_parameters = self.get_server_parameters()
-        conf = self.get_config()
-        importer = self.get_importer(conf)
-        context = self.get_context(server_parameters, conf, importer)
+        self.server_parameters = self.get_server_parameters()
+        self.config = self.get_config()
+        self.importer = self.get_importer(self.config)
+        self.context = self.get_context(self.server_parameters, self.config, self.importer)
 
-        app = self.io_loop.run_sync(lambda: LevelApp.create(context))
+        app = self.io_loop.run_sync(lambda: LevelApp.create(self.context))
 
         return app
+
+    async def sleep(self, time):
+        await gen.sleep(time)
+
+    async def wait_for(self, f):
+        while not f():
+            await gen.moment
 
     async def fetch(self, path, **kwargs):
         response = await self.http_client.fetch(self.get_url(path), **kwargs)
         return response
+
+    async def websocket_connect(self, path):
+        request = HTTPRequest(self.get_url(path).replace('http://', 'ws://'))
+        ws = await websocket_connect(request)
+        return ws
