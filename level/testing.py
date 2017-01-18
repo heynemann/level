@@ -40,7 +40,7 @@ class LevelTestCase(AsyncHTTPTestCase):
 
     def get_server_parameters(self):
         return ServerParameters(
-            ioloop=self.io_loop,
+            io_loop=self.io_loop,
             host='localhost',
             port=self.get_http_port(),
             config_path='./tests/fixtures/test-valid.conf',
@@ -58,12 +58,15 @@ class LevelTestCase(AsyncHTTPTestCase):
         self.importer = self.get_importer(self.config)
         self.context = self.get_context(self.server_parameters, self.config, self.importer)
 
-        app = self.io_loop.run_sync(lambda: LevelApp.create(self.context))
+        self.app = self.io_loop.run_sync(lambda: LevelApp.create(self.context))
 
-        return app
+        return self.app
 
     async def sleep(self, time):
         await gen.sleep(time)
+
+    async def wait_moment(self):
+        await gen.moment
 
     async def wait_for(self, f):
         while not f():
@@ -73,7 +76,25 @@ class LevelTestCase(AsyncHTTPTestCase):
         response = await self.http_client.fetch(self.get_url(path), **kwargs)
         return response
 
+    # http://stackoverflow.com/questions/33264427/how-to-test-that-tornado-read-message-got-nothing-to-read
     async def websocket_connect(self, path):
         request = HTTPRequest(self.get_url(path).replace('http://', 'ws://'))
-        ws = await websocket_connect(request)
-        return ws
+        self.ws = await websocket_connect(request)
+        await self.wait_moment()
+
+    def websocket_close(self):
+        if self.ws is None:
+            return
+
+        self.ws.close()
+
+        self.ws = None
+
+    async def write_ws_message(self, message):
+        await self.ws.write_message(message)
+        await self.wait_moment()
+
+    async def read_ws_message(self):
+        response = await self.ws.read_message()
+        await self.wait_moment()
+        return response

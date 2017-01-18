@@ -35,8 +35,8 @@ class Context:
 
 
 class ServerParameters(object):
-    def __init__(self, ioloop, host, port, config_path, log_level, debug=False, fd=None):
-        self.ioloop = ioloop
+    def __init__(self, io_loop, host, port, config_path, log_level, debug=False, fd=None):
+        self.io_loop = io_loop
         self.host = host
         self.port = port
         self.config_path = config_path

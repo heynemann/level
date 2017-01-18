@@ -9,12 +9,15 @@
 # Copyright (c) 2016, Bernardo Heynemann <heynemann@gmail.com>
 
 
+import traceback
 from uuid import uuid4
 
 import logging
 from tornado.web import Application, asynchronous
 from tornado.websocket import WebSocketHandler
 from tornado.ioloop import IOLoop
+
+from level.json import loads
 
 
 class WSHandler(WebSocketHandler):
@@ -23,16 +26,23 @@ class WSHandler(WebSocketHandler):
 
     @asynchronous
     async def open(self):
-        self.user_id = uuid4()
-        await self.application.handle_websocket_open(self.user_id)
+        self.socket_id = str(uuid4())
+        self.application.connected_players[self.socket_id] = self
+        await self.application.handle_websocket_open(self.socket_id)
 
     @asynchronous
     async def on_message(self, message):
-        await self.application.handle_websocket_message(self.user_id, message)
+        msg = loads(message)
+        await self.application.handle_websocket_message(self.socket_id, msg)
 
     @asynchronous
     async def on_close(self):
-        await self.application.handle_websocket_close(self.user_id)
+        del self.application.connected_players[self.socket_id]
+        await self.application.handle_websocket_close(self.socket_id)
+
+    @asynchronous
+    async def send_to_socket(self, msg):
+        await self.write_message(msg)
 
 
 class LevelApp(Application):
@@ -50,7 +60,8 @@ class LevelApp(Application):
 
     def __init__(self, context, handlers, *args, **kw):
         self.context = context
-        self.ioloop = IOLoop.instance()
+        self.io_loop = IOLoop.instance()
+        self.connected_players = {}
         super(LevelApp, self).__init__(handlers, *args, **kw)
 
     async def initialize(self):
@@ -76,41 +87,36 @@ class LevelApp(Application):
         logging.debug(handlers)
         return tuple(handlers)
 
-    async def handle_websocket_open(self, user_id):
-        await self.handle_websocket_operation('core.connection.open', {
+    async def handle_websocket_open(self, socket_id):
+        await self.handle_websocket_operation({
             'type': 'core.connection.open',
-            'payload': {
-                'user_id': user_id,
-            }
+            'socket_id': socket_id,
+            'payload': {},
         })
 
-    async def handle_websocket_close(self, user_id):
-        await self.handle_websocket_operation('core.connection.close', {
+    async def handle_websocket_close(self, socket_id):
+        await self.handle_websocket_operation({
             'type': 'core.connection.close',
-            'payload': {
-                'user_id': user_id,
-            }
+            'socket_id': socket_id,
+            'payload': {},
         })
 
-    async def handle_websocket_message(self, user_id, message):
+    async def handle_websocket_message(self, socket_id, message):
         msg_type = message['type']
         del message['type']
-        await self.handle_websocket_operation(msg_type, {
+        await self.handle_websocket_operation({
             'type': msg_type,
+            'socket_id': socket_id,
             'payload': message,
         })
 
-    async def handle_websocket_operation(self, method_name, *args, **kw):
+    async def handle_websocket_operation(self, msg):
+        method_name = msg['type']
         logging.debug(f'Handling {method_name} started...')
         for service in self.context.importer.services:
-            method = getattr(service, 'on_message', None)
-            if method is None:
-                logging.debug(f"Service {service.name} does not handle websocket messages. Skipping...")
-                continue
-
             logging.debug(f"Handling {method_name} in service {service.name}...")
             try:
-                await method(*args, **kw)
+                await service.on_message(msg)
                 logging.debug(f"Service {service.name} handled {method_name} successfully.")
             except Exception as err:
-                logging.error(f"Service {service.name} failed to handle {method_name} ({ err }).")
+                logging.error(f"Service {service.name} failed to handle {method_name} ({ traceback.format_exc() }).")

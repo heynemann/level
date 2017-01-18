@@ -98,5 +98,5 @@ def run(server_parameters):
     with get_context(server_parameters, config, importer) as context:
         validate_config(context)
         logging.info('level running at %s:%d' % (context.server.host, context.server.port))
-        asyncio.ensure_future(run_server(context), loop=server_parameters.ioloop)
+        asyncio.ensure_future(run_server(context), loop=server_parameters.io_loop)
         asyncio.get_event_loop().run_forever()

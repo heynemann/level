@@ -54,7 +54,7 @@ class LevelUpController(CementBaseController):
     def default(self):
         AsyncIOMainLoop().install()
         params = ServerParameters(
-            ioloop=asyncio.get_event_loop(),
+            io_loop=asyncio.get_event_loop(),
             host=self.app.pargs.bind,
             port=int(self.app.pargs.port),
             config_path=self.app.pargs.config,

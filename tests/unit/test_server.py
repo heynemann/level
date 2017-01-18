@@ -86,7 +86,7 @@ class ServerTestCase(TestCase):
 
     @async_case
     async def test_get_application(self):
-        server_parameters = mock.Mock(ioloop=self.io_loop, app_class='level.app.LevelApp')
+        server_parameters = mock.Mock(io_loop=self.io_loop, app_class='level.app.LevelApp')
         conf = Config()
         importer = get_importer(conf)
         context = get_context(server_parameters, conf, importer)
@@ -98,7 +98,7 @@ class ServerTestCase(TestCase):
     @mock.patch.object(level.server, 'HTTPServer')
     @async_case
     async def test_can_run_server_with_default_params(self, server_mock):
-        server_parameters = mock.Mock(host='0.0.0.0', port=1234, ioloop=self.io_loop, fd=None, app_class='level.app.LevelApp')
+        server_parameters = mock.Mock(host='0.0.0.0', port=1234, io_loop=self.io_loop, fd=None, app_class='level.app.LevelApp')
         conf = Config()
         importer = get_importer(conf)
         context = get_context(server_parameters, conf, importer)
