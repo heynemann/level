@@ -25,7 +25,7 @@ from level.server import (
     run_server,
 )
 
-from tests.base import TestCase, async_case
+from tests.unit.base import TestCase, async_case
 
 
 class ServerTestCase(TestCase):
@@ -36,7 +36,7 @@ class ServerTestCase(TestCase):
         expect(get_as_integer(None)).to_be_null()
 
     def test_can_get_config_from_path(self):
-        config = get_config('./tests/fixtures/test-valid.conf')
+        config = get_config('./tests/unit/fixtures/test-valid.conf')
 
         expect(config).not_to_be_null()
         expect(config.RANDOM_CONFIG).to_equal('qwe')

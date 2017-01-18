@@ -12,7 +12,7 @@ from preggy import expect
 from tornado.testing import gen_test
 
 from level.json import loads
-from tests.base import WebTestCase
+from tests.unit.base import WebTestCase
 
 
 class HealthcheckTestCase(WebTestCase):

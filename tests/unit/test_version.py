@@ -11,7 +11,7 @@
 from preggy import expect
 
 from level import __version__
-from tests.base import TestCase
+from tests.unit.base import TestCase
 
 
 class VersionTestCase(TestCase):

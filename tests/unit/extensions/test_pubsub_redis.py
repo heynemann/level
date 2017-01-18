@@ -16,14 +16,14 @@ from tornado import gen
 from level.config import Config
 from level.extensions.pubsub.redis import PubSub
 
-from tests.base import TestCase, async_case
+from tests.unit.base import TestCase, async_case
 
 
 class RedisPubSubTestCase(TestCase):
     def setUp(self):
         self.config = Config(
             REDIS_HOST='localhost',
-            REDIS_PORT=4444,
+            REDIS_PORT=4448,
             REDIS_DATABASE=0,
             REDIS_PASSWORD=None,
         )

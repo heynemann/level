@@ -11,7 +11,8 @@
 from preggy import expect
 
 from level.json import loads, dumps
-from tests.base import TestCase
+
+from tests.unit.base import TestCase
 
 
 class JSONTestCase(TestCase):
