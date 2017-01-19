@@ -13,7 +13,6 @@ import logging
 import logging.config
 import os
 from os.path import expanduser, dirname, join
-import asyncio
 
 from importer import Importer
 from tornado.httpserver import HTTPServer
@@ -91,6 +90,7 @@ async def run_server(context):
 
 
 def run(server_parameters):
+    loop = server_parameters.io_loop
     config = get_config(server_parameters.config_path)
     configure_log(config, server_parameters.log_level.upper())
     importer = get_importer(config)
@@ -98,5 +98,5 @@ def run(server_parameters):
     with get_context(server_parameters, config, importer) as context:
         validate_config(context)
         logging.info('level running at %s:%d' % (context.server.host, context.server.port))
-        asyncio.ensure_future(run_server(context), loop=server_parameters.io_loop)
-        asyncio.get_event_loop().run_forever()
+        loop.call_later(0, lambda: run_server(context))
+        loop.start()

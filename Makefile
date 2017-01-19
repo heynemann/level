@@ -19,7 +19,7 @@ setup:
 test: redis_test unit
 
 unit:
-	@coverage run --branch `which nosetests` -vv --with-yanc -s tests/unit/
+	@coverage run --branch `which nosetests` -vv --with-yanc -s tests/
 	@coverage report -m --fail-under=80
 
 # show coverage in html format

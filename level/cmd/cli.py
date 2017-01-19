@@ -10,16 +10,16 @@
 
 import sys
 import signal
-import asyncio
 
+from tornado.ioloop import IOLoop
 from cement.core.exc import CaughtSignal
 from cement.core.foundation import CementApp
 from cement.core.controller import CementBaseController, expose
-from tornado.platform.asyncio import AsyncIOMainLoop
 
 from level.context import ServerParameters
 from level.server import run
 from level.config import generate_config
+from level.load import LoadTest
 
 
 LOG_LEVELS = {
@@ -52,9 +52,8 @@ class LevelUpController(CementBaseController):
 
     @expose(help='Starts a configured level server.')
     def default(self):
-        AsyncIOMainLoop().install()
         params = ServerParameters(
-            io_loop=asyncio.get_event_loop(),
+            io_loop=IOLoop.instance(),
             host=self.app.pargs.bind,
             port=int(self.app.pargs.port),
             config_path=self.app.pargs.config,
@@ -86,6 +85,34 @@ class LevelConfigController(CementBaseController):
         generate_config()
 
 
+class LevelLoadController(CementBaseController):
+    class Meta:
+        label = 'load'
+        stacked_on = 'base'
+        description = 'Load test level\'s websocket infrastructure.'
+        stacked_type = 'nested'
+
+        arguments = [
+            (['-c', '--concurrency'], dict(type=int, default=200, help='Amount of concurrent websocket connections.')),
+            (['-d', '--duration'], dict(type=int, default=10, help='Number of seconds to run test with.')),
+            (['-r', '--recycle'], dict(type=int, default=2, help='Number of seconds to keep websocket connection alive.')),
+
+        ]
+
+    @expose(help='Load test level\'s websocket infrastructure.')
+    def default(self):
+        load = LoadTest(
+            'ws://localhost:8888/ws',
+            int(self.app.pargs.concurrency),
+            int(self.app.pargs.recycle),
+            int(self.app.pargs.duration),
+        )
+        try:
+            load.start()
+        except Exception:
+            load.stop()
+
+
 class LevelCliApp(CementApp):
     class Meta:
         label = 'level'
@@ -94,6 +121,7 @@ class LevelCliApp(CementApp):
             LevelController,
             LevelUpController,
             LevelConfigController,
+            LevelLoadController,
         ]
 
 
